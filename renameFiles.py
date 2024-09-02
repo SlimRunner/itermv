@@ -159,23 +159,23 @@ def printVerbose(namePairs, args):
             colSize[1] = max(colSize[1], len(nf.name))
         for f, nf in namePairs:
             print(f"    {f.name:{colSize[0]}} -> {nf.name:{colSize[1]}}")
-        
+
         print()
         userInput = input("Do you want to proceed? [Y]es/[N]o: ")
-        while (userInput not in "YyNn"):
+        while userInput not in "YyNn":
             userInput = input("Do you want to proceed? [Y]es/[N]o: ")
         return userInput in "Yy"
-    
+
     return True
 
 
 def renameFiles(namePairs):
     oldNames = {oldn for oldn, newn in namePairs}
-    
+
     for oldn, newn in namePairs:
         if newn in oldNames:
             raise FileExistsError("Haven't coded a name collision resolution yet")
-    
+
     for oldn, newn in namePairs:
         os.rename(oldn.path, newn.path)
 

@@ -13,9 +13,8 @@ def main():
     filePairs = getFileNames(args.source.path, args)
 
     if printVerbose(filePairs, args):
-        print("dummy: names changed")
-        # renameFiles(filePairs)
-    pass
+        renameFiles(filePairs)
+        print("files renamed successfully")
 
 
 class NewFile:
@@ -293,7 +292,6 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
             raise ValueError("Pattern provided does not yield unique names.")
         newFileSet.add(newFile)
         newFiles.append((f, NewFile(newFile)))
-        pass
 
     return newFiles
 

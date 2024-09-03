@@ -12,7 +12,7 @@ def main():
     args = getArguments()
     filePairs = getFileNames(args.source.path, args)
 
-    if printVerbose(filePairs, args):
+    if askUser(filePairs, args):
         renameFiles(filePairs)
         print("files renamed successfully")
 
@@ -54,9 +54,8 @@ class FileEntry:
         self.__mtime = os.path.getmtime(fullpath)
         self.__atime = os.path.getatime(fullpath)
         self.__size = os.path.getsize(fullpath)
-        # getting the creation time is problematic and its most of the
-        # time similar to modification time. With this trade off in mind
-        # I have decided to not compute it.
+        # getting the creation time is not cross platform. With this
+        # trade off in mind I have decided not to include it.
 
     def __repr__(self) -> str:
         return f"'{self.__path}'"
@@ -209,7 +208,7 @@ def positiveNumber(arg: str):
     return value
 
 
-def printVerbose(filePairs, args: ArgsWrapper):
+def askUser(filePairs, args: ArgsWrapper):
     if args.verbose:
         print("The following file names will be changed:\n")
         print(f"The common directory is: {args.source.path}")
@@ -282,7 +281,7 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
             "n": idx,
             "N": f"{idx:0{padsize}d}",
             "ext": f.extension,
-            "UT": unixtime,
+            "unixt": unixtime,
             "d": shortdate,
             "T": longtime,
             "t": shortime,
@@ -322,8 +321,13 @@ def getArguments(*args: str) -> ArgsWrapper:
                 - {n} is replaced by a sequential number in the order specified.
                 - {N} is replaced by a sequential number in the order specified
                   padded to the largest integer.
-                - {ext} is replaced by the extension of the original file.
-                - {d} is replaced by a date in yyyy/mm/dd format.
+                - {ext} is replaced by the extension of the original file
+                  (including the dot).
+                - {unixt} is replaced by unix time of the last modification
+                - {d} is replaced by the date in yyyy/mm/dd format.
+                - {T} is replaced by time in hhmmss-uu format where u are
+                  microseconds
+                - {t} is replaced by time in hhmmss
             """
         ),
         type=NamePattern,

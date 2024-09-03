@@ -392,7 +392,7 @@ def getArguments(*args: str) -> ArgsWrapper:
         help="If present all prompts are skipped.",
     )
     if len(args) > 0:
-        pArgs = parser.parse_args([a for a in args])
+        pArgs = parser.parse_args(list(args))
     else:
         pArgs = parser.parse_args()
 

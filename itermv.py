@@ -53,9 +53,9 @@ class FileEntry:
         self.__parent = fdir
         self.__mtime = os.path.getmtime(fullpath)
         self.__atime = os.path.getatime(fullpath)
+        # ctime is not consistent across platforms.
+        self.__ctime = os.path.getctime(fullpath)
         self.__size = os.path.getsize(fullpath)
-        # getting the creation time is not cross platform. With this
-        # trade off in mind I have decided not to include it.
 
     def __repr__(self) -> str:
         return f"'{self.__path}'"
@@ -83,6 +83,10 @@ class FileEntry:
     @property
     def atime(self) -> float:
         return self.__atime
+
+    @property
+    def ctime(self) -> float:
+        return self.__ctime
 
     @property
     def size(self) -> int:
@@ -118,10 +122,11 @@ class NamePattern:
 
 
 class SortingOptions:
-    OPTIONS = {"name", "atime", "mtime", "size"}
+    OPTIONS = {"name", "atime", "mtime", "ctime", "size"}
     BY_NAME = "name"
     BY_ACCESS_DATE = "atime"
     BY_MODIFY_DATE = "mtime"
+    BY_META_DATE = "ctime"
     BY_SIZE = "size"
     DEFAULT = BY_NAME
 
@@ -142,6 +147,9 @@ class SortingOptions:
 
     def byModifyDate(self) -> bool:
         return self.__options[SortingOptions.BY_MODIFY_DATE]
+
+    def byMetaDate(self) -> bool:
+        return self.__options[SortingOptions.BY_META_DATE]
 
     def bySize(self) -> bool:
         return self.__options[SortingOptions.BY_SIZE]

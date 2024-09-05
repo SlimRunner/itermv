@@ -234,17 +234,92 @@ def askUser(filePairs, args: ArgsWrapper):
     print()
     MSG = "Do you want to proceed? [Y]es/[N]o: "
     userInput = input(MSG)
-    while len(userInput) > 1 or userInput not in "YyNn":
+    while len(userInput) != 1 or userInput not in "YyNn":
         userInput = input(MSG)
-    return userInput in "Yy"
+    return len(userInput) > 0 and userInput in "Yy"
+
+
+def isCyclic(graph: dict[str, str], visited: set[str], seed: str) -> bool:
+    # this function can only handle graphs without branching
+    visited.add(seed)
+    node = graph[seed]
+    while node is not None and node != seed:
+        visited.add(node)
+        if node not in graph:
+            node = None
+        else:
+            node = graph[node]
+
+    return node is not None
+
+
+def genTempName(path: str) -> str:
+    raise NotImplementedError("TODO")
 
 
 def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
-    oldNames = {oldn for oldn, newn in filePairs}
+    if len(filePairs) == 0:
+        return
 
+    commonPath = filePairs[0][0].parent
+
+    # new -> old
+    graph: dict[str, str] = {}
+    visited: set[str] = set()
     for oldn, newn in filePairs:
+        if newn.path in graph:
+            # this is checked earlier but it doesn't hurt to do it twice
+            raise ValueError("Pattern provided does not yield unique names.")
+        else:
+            graph[newn.path] = oldn.path
+
+    cycles: list[str] = []
+    sequences: list[str] = []
+
+    for node in graph:
+        if node not in visited:
+            if node == graph[node]:
+                # ignore loops
+                pass
+            elif isCyclic(graph, visited, node):
+                cycles.append(node)
+            else:
+                sequences.append(node)
+
+    # (old, new)
+    schedule: list[tuple[str, str]] = []
+    tempName: str | None = None
+
+    for seq in sequences:
+        node = seq
+        while node in graph:
+            schedule.append((graph[node], node))
+            node = graph[node]
+        tempName = node
+
+    if tempName is None and len(sequences) == 0:
+        tempName = genTempName(commonPath)
+
+    for seed in cycles:
+        node = graph[seed]
+        schedule.append((seed, tempName))
+        schedule.append((node, seed))
+        while node != seed:
+            schedule.append((graph[node], node))
+            node = graph[node]
+        _, tail = schedule[-1]
+        schedule[-1] = (tempName, tail)
+
+    for old, new in schedule:
+        os.rename(old, new)
+
+
+def renameDisjointFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
+    oldNames = {oldn for oldn, _ in filePairs}
+
+    for _, newn in filePairs:
         if newn in oldNames:
-            raise FileExistsError("Haven't coded a name collision resolution yet")
+            raise FileExistsError("There cannot be overlap between old and new names.")
 
     for oldn, newn in filePairs:
         os.rename(oldn.path, newn.path)
@@ -280,6 +355,7 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
     padsize = len(str(indexStart + len(files)))
     for i, f in enumerate(files):
         idx = i + indexStart
+        # alpha = chr(65 + (i % 26 + (1 if i == 6 else 0)))
         unixtime = f.mtime
         ftime = datetime.datetime.fromtimestamp(unixtime)
         shortdate = ftime.date()

@@ -536,8 +536,8 @@ def getArguments(*args: str) -> ArgsWrapper:
         "--source",
         nargs=1,
         default=[InputPath(os.getcwd())],
-        metavar="INPUT",
-        help="input directory. If ommited the current working directory will be used.",
+        metavar="SOURCE",
+        help="source directory. If ommited the current working directory will be used.",
         type=InputPath,
     )
     parser.add_argument(

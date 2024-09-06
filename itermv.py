@@ -368,6 +368,12 @@ def genTempName(path: str) -> str:
     num = randint(0xFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF)
     alnum = RadixCounter(36, num)
     tempname = os.path.join(path, alnum.str())
+
+    # this is a temporary solution; however, it is very unlikely to fail
+    # as-is, and that is an understatement. A much more elegant solution
+    # would include a thorough name generator that guarantees to finda a
+    # unique name in the current path.
+
     for _ in range(2):
         if not os.path.exists(tempname):
             return tempname

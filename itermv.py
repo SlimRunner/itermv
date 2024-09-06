@@ -381,7 +381,7 @@ def genTempName(path: str) -> str:
         alnum = RadixCounter(36, num)
         tempname = os.path.join(path, alnum.str())
 
-    raise FileExistsError("Could not find ")
+    raise FileExistsError("Could not find an available name.")
 
 
 def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:

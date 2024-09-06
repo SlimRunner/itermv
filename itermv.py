@@ -5,6 +5,7 @@ import re
 import argparse
 import datetime
 import textwrap
+from random import randint
 from argparse import ArgumentParser
 
 
@@ -13,7 +14,10 @@ def main():
     filePairs = getFileNames(args.source.path, args)
 
     if askUser(filePairs, args):
-        renameFiles(filePairs)
+        if args.overlap:
+            renameFiles(filePairs)
+        else:
+            renameDisjointFiles(filePairs)
         print("files renamed successfully")
 
 
@@ -47,8 +51,9 @@ class FileEntry:
         fdir, fname = os.path.split(fullpath)
         if not os.path.exists(fullpath):
             raise FileNotFoundError(f"file does not exist: {fullpath}")
-        _, ext = os.path.splitext(fullpath)
+        noxname, ext = os.path.splitext(fname)
         self.__name = fname
+        self.__noextname = noxname
         self.__extension = ext
         self.__parent = fdir
         self.__mtime = os.path.getmtime(fullpath)
@@ -63,6 +68,10 @@ class FileEntry:
     @property
     def name(self) -> str:
         return self.__name
+
+    @property
+    def noextname(self) -> str:
+        return self.__noextname
 
     @property
     def extension(self) -> str:
@@ -160,6 +169,7 @@ class ArgsWrapper:
         self.__source = args.source
         self.__pattern = args.pattern
         self.__start_number = args.start_number
+        self.__radix = args.radix
         self.__regex = args.regex
         self.__include_self = args.include_self
         self.__exclude_dir = args.exclude_dir
@@ -167,6 +177,7 @@ class ArgsWrapper:
         self.__reverse_sort = args.reverse_sort
         self.__verbose = args.verbose
         self.__quiet = args.quiet
+        self.__overlap = args.overlap
 
     @property
     def source(self) -> InputPath:
@@ -179,6 +190,10 @@ class ArgsWrapper:
     @property
     def start_number(self) -> int:
         return self.__start_number
+
+    @property
+    def radix(self) -> int:
+        return self.__radix
 
     @property
     def regex(self) -> str:
@@ -208,11 +223,107 @@ class ArgsWrapper:
     def quiet(self) -> bool:
         return self.__quiet
 
+    @property
+    def overlap(self) -> bool:
+        return self.__overlap
 
-def positiveNumber(arg: str):
+
+class RadixCounter:
+    def __init__(self, radix: int, start=0) -> None:
+        if radix < 1:
+            raise ValueError("radix cannot be negative")
+        self.__radix = radix
+        self.__counter = [0]
+        self.setCount(start)
+
+    def setCount(self, num: int):
+        self.__counter = [num]
+        while self.__counter[0] >= self.__radix:
+            self.__counter.insert(0, self.__counter[0] // self.__radix)
+            self.__counter[1] %= self.__radix
+        if len(self.__counter) > 1 and self.__counter[0] == 0:
+            self.__counter.pop(0)
+        return self
+
+    def increase(self):
+        pos = len(self.__counter) - 1
+        self.__counter[pos] += 1
+        while self.__counter[pos] >= self.__radix:
+            carry = self.__counter[pos] // self.__radix
+            out = self.__counter[pos] % self.__radix
+            self.__counter[pos] = out
+            pos -= 1
+            if pos < 0:
+                if carry > 0:
+                    self.__counter.insert(0, carry)
+                # assuming delta is +1
+                break
+            else:
+                self.__counter[pos] += carry
+        return self
+
+    def str(self, upper=False) -> str:
+        offset = (65 if upper else 97) - 10
+        if self.__radix > 36:
+            raise IndexError(
+                f"Not enough letters in alphabet for radix of {self.__radix}"
+            )
+        return "".join([chr(i + (offset if i > 9 else 48)) for i in self.__counter])
+
+    def raw(self) -> list[int]:
+        return self.__counter[:]
+
+
+class AlphaCounter:
+    def __init__(self, start=0) -> None:
+        self.__radix = 26
+        self.__counter = [0]
+        self.setCount(start)
+
+    def setCount(self, num: int):
+        radix = self.__radix
+        self.__counter = [num]
+        while self.__counter[0] >= radix:
+            self.__counter.insert(0, self.__counter[0] // radix - 1)
+            self.__counter[1] %= radix
+        return self
+
+    def increase(self):
+        radix = self.__radix
+        pos = len(self.__counter) - 1
+        self.__counter[pos] += 1
+        while self.__counter[pos] >= radix:
+            carry = self.__counter[pos] // radix
+            out = self.__counter[pos] % radix
+            self.__counter[pos] = out
+            pos -= 1
+            if pos < 0:
+                if carry >= 0:
+                    self.__counter.insert(0, carry - 1)
+                break
+            else:
+                self.__counter[pos] += carry
+        return self
+
+    def str(self, upper=False) -> str:
+        offset = 65 if upper else 97
+        return "".join([chr(n + offset) for i, n in enumerate(self.__counter)])
+
+    def raw(self) -> list[int]:
+        return self.__counter[:]
+
+
+def nonNegativeNumber(arg: str):
     value = int(arg)
     if value < 0:
         raise ValueError("Staring number must be positive")
+    return value
+
+
+def positiveRadix(arg: str):
+    value = int(arg)
+    if value <= 1:
+        raise ValueError("Radix must be greater than 1")
     return value
 
 
@@ -254,7 +365,17 @@ def isCyclic(graph: dict[str, str], visited: set[str], seed: str) -> bool:
 
 
 def genTempName(path: str) -> str:
-    raise NotImplementedError("TODO")
+    num = randint(0xFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF)
+    alnum = RadixCounter(36, num)
+    tempname = os.path.join(path, alnum.str())
+    for _ in range(2):
+        if not os.path.exists(tempname):
+            return tempname
+        num = randint(0xFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF)
+        alnum = RadixCounter(36, num)
+        tempname = os.path.join(path, alnum.str())
+
+    raise FileExistsError("Could not find ")
 
 
 def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
@@ -263,33 +384,40 @@ def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
 
     commonPath = filePairs[0][0].parent
 
-    # new -> old
+    # map of renames: new -> old
     graph: dict[str, str] = {}
     visited: set[str] = set()
+
+    # NOTE: this function assumes that neither the set of old names or
+    # the set of new names contain any duplicates. The implication is
+    # that the resulting graph has no branching.
+
+    # build graph
     for oldn, newn in filePairs:
         if newn.path in graph:
-            # this is checked earlier but it doesn't hurt to do it twice
+            # branching detected
             raise ValueError("Pattern provided does not yield unique names.")
-        else:
-            graph[newn.path] = oldn.path
+        graph[newn.path] = oldn.path
 
     cycles: list[str] = []
     sequences: list[str] = []
 
+    # categorize connected components
     for node in graph:
         if node not in visited:
             if node == graph[node]:
-                # ignore loops
+                # ignore loops: meaning name does not change
                 pass
             elif isCyclic(graph, visited, node):
                 cycles.append(node)
             else:
                 sequences.append(node)
 
-    # (old, new)
+    # schedule of pairs: (old, new)
     schedule: list[tuple[str, str]] = []
     tempName: str | None = None
 
+    # process acyclic chains
     for seq in sequences:
         node = seq
         while node in graph:
@@ -297,9 +425,10 @@ def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
             node = graph[node]
         tempName = node
 
-    if tempName is None and len(sequences) == 0:
+    if tempName is None and len(sequences) == 0 and len(cycles) > 0:
         tempName = genTempName(commonPath)
 
+    # process cyclic chains
     for seed in cycles:
         node = graph[seed]
         schedule.append((seed, tempName))
@@ -315,14 +444,14 @@ def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
 
 
 def renameDisjointFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
-    oldNames = {oldn for oldn, _ in filePairs}
+    oldNames = {old.path for old, _ in filePairs}
 
-    for _, newn in filePairs:
-        if newn in oldNames:
+    for _, new in filePairs:
+        if new.path in oldNames:
             raise FileExistsError("There cannot be overlap between old and new names.")
 
-    for oldn, newn in filePairs:
-        os.rename(oldn.path, newn.path)
+    for old, new in filePairs:
+        os.rename(old.path, new.path)
 
 
 def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]:
@@ -352,10 +481,14 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
     newFiles = []
     newFileSet = set()
     indexStart = opt.start_number
-    padsize = len(str(indexStart + len(files)))
+    alpha = AlphaCounter(indexStart)
+    index = RadixCounter(opt.radix, indexStart)
+    largestNum = RadixCounter(opt.radix, indexStart + +len(files))
+    padsize = len(largestNum.str())
+
     for i, f in enumerate(files):
-        idx = i + indexStart
-        # alpha = chr(65 + (i % 26 + (1 if i == 6 else 0)))
+        idx = index.str(False)
+        idxUp = index.str(True)
         unixtime = f.mtime
         ftime = datetime.datetime.fromtimestamp(unixtime)
         shortdate = ftime.date()
@@ -363,13 +496,20 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
         shortime = str(ftime.replace(microsecond=0).time()).replace(":", "")
         nameopts = {
             "n": idx,
-            "N": f"{idx:0{padsize}d}",
-            "ext": f.extension,
-            "unixt": unixtime,
+            "N": idxUp,
+            "n0": f"{idx:0>{padsize}}",
+            "N0": f"{idxUp:0>{padsize}}",
+            "a": alpha.str(),
+            "A": alpha.str(upper=True),
             "d": shortdate,
             "T": longtime,
             "t": shortime,
+            "ext": f.extension,
+            "name": f.noextname,
+            "unixt": unixtime,
         }
+        alpha.increase()
+        index.increase()
         newFile = os.path.join(path, opt.pattern.evalPattern(**nameopts))
         if newFile in newFileSet:
             raise ValueError("Pattern provided does not yield unique names.")
@@ -382,7 +522,7 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
 def getArguments(*args: str) -> ArgsWrapper:
     parser = ArgumentParser(
         prog="itermv",
-        description="Provides tools to easily rename files.",
+        description="Provides tools to easily rename files within a given directory.",
         formatter_class=argparse.RawTextHelpFormatter,
     )
     parser.add_argument(
@@ -402,16 +542,22 @@ def getArguments(*args: str) -> ArgsWrapper:
             """\
             Name pattern to replace current names. Wrap replacement values within
             curly braces.
-                - {n} is replaced by a sequential number in the order specified.
-                - {N} is replaced by a sequential number in the order specified
-                  padded to the largest integer.
-                - {ext} is replaced by the extension of the original file
+                - {n} or {N} a sequential number in the order specified (uppercase
+                  applies when radix is greater than 10).
+                - {n0} or {N0} a sequential number in the order specified padded with
+                  zeroes to largest integer
+                - {n:0Kd} a sequential number in the order specified padded with
+                  zeroes to a length of K characters.
+                - {a} or {A} alphabetical counting.
+                - {d} the date in yyyy/mm/dd format.
+                - {T} time in hhmmss-uu format where u are
+                  microseconds.
+                - {t} time in hhmmss format.capitalize()
+                - {ext} the extension of the original file
                   (including the dot).
-                - {unixt} is replaced by unix time of the last modification
-                - {d} is replaced by the date in yyyy/mm/dd format.
-                - {T} is replaced by time in hhmmss-uu format where u are
-                  microseconds
-                - {t} is replaced by time in hhmmss
+                - {name} the name of the original file without the
+                  extension.
+                - {unixt} unix time of the last modification.
             """
         ),
         type=NamePattern,
@@ -420,10 +566,19 @@ def getArguments(*args: str) -> ArgsWrapper:
         "-n",
         "--start-number",
         nargs=1,
-        default=[1],
+        default=[0],
         metavar="NUMBER",
         help="Determines the initial value.",
-        type=positiveNumber,
+        type=nonNegativeNumber,
+    )
+    parser.add_argument(
+        "-k",
+        "--radix",
+        nargs=1,
+        default=[10],
+        metavar="NUMBER",
+        help="Specifies the radix of the counting.",
+        type=positiveRadix,
     )
     parser.add_argument(
         "-r",
@@ -458,7 +613,7 @@ def getArguments(*args: str) -> ArgsWrapper:
         help="Allows sorting files by some criterion.",
     )
     parser.add_argument(
-        "-k",
+        "-i",
         "--reverse-sort",
         action="store_true",
         help="When present sorting is reversed.",
@@ -475,6 +630,12 @@ def getArguments(*args: str) -> ArgsWrapper:
         action="store_true",
         help="If present all prompts are skipped.",
     )
+    parser.add_argument(
+        "-p",
+        "--overlap",
+        action="store_true",
+        help="Allow new names to overlap with existing names.",
+    )
     if len(args) > 0:
         pArgs = parser.parse_args(list(args))
     else:
@@ -483,6 +644,7 @@ def getArguments(*args: str) -> ArgsWrapper:
     pArgs.source = pArgs.source[0]
     pArgs.pattern = pArgs.pattern[0]
     pArgs.start_number = pArgs.start_number[0]
+    pArgs.radix = pArgs.radix[0]
     pArgs.regex = pArgs.regex[0] if pArgs.regex is not None else None
     pArgs.sort = SortingOptions(pArgs.sort[0])
 

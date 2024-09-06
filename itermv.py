@@ -13,12 +13,14 @@ def main():
     args = getArguments()
     filePairs = getFileNames(args.source.path, args)
 
+    renameCount = 0
     if askUser(filePairs, args):
         if args.overlap:
-            renameFiles(filePairs)
+            renameCount = renameFiles(filePairs)
         else:
-            renameDisjointFiles(filePairs)
-        print("files renamed successfully")
+            renameCount = renameDisjointFiles(filePairs)
+        if args.verbose:
+            print(f"{renameCount} renames performed")
 
 
 class NewFile:
@@ -337,8 +339,8 @@ def askUser(filePairs, args: ArgsWrapper):
             colSize[1] = max(colSize[1], len(nf.name))
         for f, nf in filePairs:
             print(f"    {f.name:{colSize[0]}} -> {nf.name:{colSize[1]}}")
-    else:
-        print(f"{len(filePairs)} files will be changed\n")
+    elif not args.quiet:
+        print(f"{len(filePairs)} files will be changed")
 
     if args.quiet:
         return True
@@ -350,18 +352,21 @@ def askUser(filePairs, args: ArgsWrapper):
     return len(userInput) > 0 and userInput in "Yy"
 
 
-def isCyclic(graph: dict[str, str], visited: set[str], seed: str) -> bool:
+def identifyCycle(graph: dict[str, str], visited: set[str], seed: str) -> tuple[str | None, str | None]:
     # this function can only handle graphs without branching
     visited.add(seed)
+    prev = None
     node = graph[seed]
     while node is not None and node != seed:
-        visited.add(node)
-        if node not in graph:
+        if node not in graph or node in visited:
+            visited.add(node)
+            prev = node
             node = None
         else:
+            visited.add(node)
             node = graph[node]
 
-    return node is not None
+    return (node, prev)
 
 
 def genTempName(path: str) -> str:
@@ -384,7 +389,7 @@ def genTempName(path: str) -> str:
     raise FileExistsError("Could not find an available name.")
 
 
-def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
+def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> int:
     if len(filePairs) == 0:
         return
 
@@ -407,17 +412,25 @@ def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
 
     cycles: list[str] = []
     sequences: list[str] = []
+    seqdict: dict[str, None] = {}
 
     # categorize connected components
     for node in graph:
         if node not in visited:
             if node == graph[node]:
                 # ignore loops: meaning name does not change
-                pass
-            elif isCyclic(graph, visited, node):
+                continue
+            # repNode is the node which completes a cycle (None otherwise)
+            # seqNode is the node that breaks a sequence (visited)
+            repNode, seqNode = identifyCycle(graph, visited, node)
+            if repNode is not None:
                 cycles.append(node)
             else:
-                sequences.append(node)
+                if seqNode in seqdict:
+                    del seqdict[seqNode]
+                seqdict[node] = None
+
+    sequences = list(seqdict.keys())
 
     # schedule of pairs: (old, new)
     schedule: list[tuple[str, str]] = []
@@ -447,17 +460,22 @@ def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
 
     for old, new in schedule:
         os.rename(old, new)
+    
+    return len(schedule)
 
 
-def renameDisjointFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> None:
+def renameDisjointFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> int:
     oldNames = {old.path for old, _ in filePairs}
 
     for _, new in filePairs:
         if new.path in oldNames:
             raise FileExistsError("There cannot be overlap between old and new names.")
 
+    filePairs = [(o, n) for o, n in filePairs if o.path != n.path]
     for old, new in filePairs:
         os.rename(old.path, new.path)
+    
+    return len(filePairs)
 
 
 def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]:
@@ -484,7 +502,7 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
     if opt.sort.bySize():
         files = sorted(files, key=lambda file: file.size, reverse=opt.reverse_sort)
 
-    newFiles = []
+    newFiles: list[tuple[FileEntry, NewFile]] = []
     newFileSet = set()
     indexStart = opt.start_number
     alpha = AlphaCounter(indexStart)
@@ -505,7 +523,7 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
             "N": idxUp,
             "n0": f"{idx:0>{padsize}}",
             "N0": f"{idxUp:0>{padsize}}",
-            "a": alpha.str(),
+            "a": alpha.str(upper=False),
             "A": alpha.str(upper=True),
             "d": shortdate,
             "T": longtime,
@@ -521,6 +539,15 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
             raise ValueError("Pattern provided does not yield unique names.")
         newFileSet.add(newFile)
         newFiles.append((f, NewFile(newFile)))
+
+    existingFiles = {f2.path for f2 in files}
+    for _, file in newFiles:
+        if not (opt.overlap and file.path in existingFiles) and os.path.exists(file.path):
+            if file.path in existingFiles:
+                errMsg = "There cannot be overlap between old and new names."
+            else:
+                errMsg = "A name collision occurred with a file outside the selected ones."
+            raise FileExistsError(errMsg)
 
     return newFiles
 

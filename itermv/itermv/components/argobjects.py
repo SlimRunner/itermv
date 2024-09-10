@@ -10,11 +10,7 @@ class NamePattern:
         return f"'{self.__pattern}'"
 
     def evalPattern(self, *matches, **kwargs) -> str:
-        pattern = self.__pattern
-        for capMatch in re.finditer(r"{(\d+)}", self.__pattern):
-            idx = int(capMatch.group(1))
-            pattern = pattern.replace(capMatch.group(0), matches[idx], 1)
-        return pattern.format(**kwargs)
+        return self.__pattern.format(*matches, **kwargs)
 
 
 class SortingOptions:

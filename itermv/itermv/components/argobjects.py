@@ -68,6 +68,7 @@ class ArgsWrapper:
         self.__verbose = args.verbose
         self.__quiet = args.quiet
         self.__overlap = args.overlap
+        self.__dry_run = args.dry_run
 
     @property
     def source(self) -> InputPath:
@@ -116,3 +117,7 @@ class ArgsWrapper:
     @property
     def overlap(self) -> bool:
         return self.__overlap
+
+    @property
+    def dry_run(self) -> bool:
+        return self.__dry_run

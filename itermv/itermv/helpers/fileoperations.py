@@ -25,7 +25,9 @@ def genTempName(path: str) -> str:
     raise FileExistsError("Could not find an available name.")
 
 
-def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> list[tuple[str, str]]:
+def renameFiles(
+    filePairs: list[tuple[FileEntry, NewFile]], dryRun=False
+) -> list[tuple[str, str]]:
     if len(filePairs) == 0:
         return
 
@@ -94,14 +96,15 @@ def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> list[tuple[str, s
         _, tail = schedule[-1]
         schedule[-1] = (tempName, tail)
 
-    for old, new in schedule:
-        os.rename(old, new)
+    if not dryRun:
+        for old, new in schedule:
+            os.rename(old, new)
 
     return schedule
 
 
 def renameDisjointFiles(
-    filePairs: list[tuple[FileEntry, NewFile]]
+    filePairs: list[tuple[FileEntry, NewFile]], dryRun=False
 ) -> list[tuple[str, str]]:
     schedule: list[tuple[str, str]] = [
         (old.path, new.path) for old, new in filePairs if old.path != new.path
@@ -111,6 +114,7 @@ def renameDisjointFiles(
     for old, new in schedule:
         if new in oldNames:
             raise FileExistsError("There cannot be overlap between old and new names.")
-        os.rename(old, new)
+        if not dryRun:
+            os.rename(old, new)
 
     return schedule

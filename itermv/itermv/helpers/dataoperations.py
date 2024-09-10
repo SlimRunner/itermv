@@ -18,10 +18,10 @@ import textwrap
 from argparse import ArgumentParser
 
 
-def askUser(filePairs, args: ArgsWrapper):
+def askUser(args: ArgsWrapper):
+    print()
     if args.quiet:
         return True
-    print()
     MSG = "Do you want to proceed? [Y]es/[N]o: "
     userInput = input(MSG)
     while len(userInput) != 1 or userInput not in "YyNn":
@@ -34,6 +34,8 @@ def printNameMapping(
     ignored: list[tuple[FileEntry, NewFile]],
     args: ArgsWrapper,
 ):
+    if args.dry_run:
+        print("-- DRY RUN")
     if args.verbose:
         print(f"The common directory is: {args.source.path}\n")
 
@@ -42,11 +44,13 @@ def printNameMapping(
             colSize[0] = max(colSize[0], len(o.name))
             colSize[1] = max(colSize[1], len(n.name))
 
-        print("The following files will be changed:")
+        if len(schedule):
+            print("The following files will be changed:")
         for o, n in schedule:
             print(f"    {o.name:{colSize[0]}} -> {n.name:{colSize[1]}}")
 
-        print("The following files will be ignored:")
+        if len(ignored):
+            print("The following files will be ignored:")
         for o, n in ignored:
             print(f"    {o.name:{colSize[0]}} -> {n.name:{colSize[1]}}")
 
@@ -67,6 +71,9 @@ def printChangesMade(schedule: list[tuple[str, str]], args: ArgsWrapper):
             print(f"    {o:{colSize[0]}} -> {n:{colSize[1]}}")
     elif not args.quiet:
         print(f"{len(schedule)} name changes performed")
+
+    if args.dry_run:
+        print("DRY RUN --")
 
 
 def getFileNames(path: str, opt: ArgsWrapper):
@@ -283,6 +290,13 @@ def getArguments(*args: str) -> ArgsWrapper:
         action="store_true",
         help="Allow new names to overlap with existing names.",
     )
+    parser.add_argument(
+        "-d",
+        "--dry-run",
+        action="store_true",
+        help="Does not change anything. Useful in combination with verbose.",
+    )
+
     if len(args) > 0:
         pArgs = parser.parse_args(list(args))
     else:

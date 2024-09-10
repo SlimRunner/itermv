@@ -7,14 +7,14 @@ from components import (
     InputPath,
     NamePattern,
     SortingOptions,
+    BlankLinesHelpFormatter,
 )
-from utils import identifyCycle, nonNegativeNumber, positiveRadix
+from utils import nonNegativeNumber, positiveRadix
 
 import os
 import re
 import datetime
 import textwrap
-import argparse
 from argparse import ArgumentParser
 
 
@@ -122,12 +122,6 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
             raise FileExistsError(errMsg)
 
     return newFiles
-
-
-# https://stackoverflow.com/a/29485128
-class BlankLinesHelpFormatter(argparse.RawTextHelpFormatter):
-    def _split_lines(self, text, width):
-        return super()._split_lines(text, width) + [""]
 
 
 def getArguments(*args: str) -> ArgsWrapper:

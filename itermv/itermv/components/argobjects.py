@@ -1,6 +1,12 @@
 from components import InputPath
 
-import re
+import argparse
+
+
+# https://stackoverflow.com/a/29485128
+class BlankLinesHelpFormatter(argparse.RawTextHelpFormatter):
+    def _split_lines(self, text, width):
+        return super()._split_lines(text, width) + [""]
 
 
 class NamePattern:
@@ -10,8 +16,8 @@ class NamePattern:
     def __repr__(self) -> str:
         return f"'{self.__pattern}'"
 
-    def evalPattern(self, *matches, **kwargs) -> str:
-        return self.__pattern.format(*matches, **kwargs)
+    def evalPattern(self, *matches, **options) -> str:
+        return self.__pattern.format(*matches, **options)
 
 
 class SortingOptions:

@@ -183,7 +183,7 @@ def getArguments(*args: str) -> ArgsWrapper:
         nargs=1,
         default=[0],
         metavar="NUMBER",
-        help="Determines the initial value.",
+        help="Determines the initial value (0 is default).",
         type=nonNegativeNumber,
     )
     parser.add_argument(
@@ -192,7 +192,7 @@ def getArguments(*args: str) -> ArgsWrapper:
         nargs=1,
         default=[10],
         metavar="NUMBER",
-        help="Specifies the radix of the counting.",
+        help="Specifies the radix of the counting (10 is default).",
         type=positiveRadix,
     )
     parser.add_argument(
@@ -217,7 +217,7 @@ def getArguments(*args: str) -> ArgsWrapper:
         "-x",
         "--exclude-dir",
         action="store_true",
-        help="If present only files are considered.",
+        help="If present directories are ignored.",
     )
     parser.add_argument(
         "-o",
@@ -231,13 +231,13 @@ def getArguments(*args: str) -> ArgsWrapper:
         "-i",
         "--reverse-sort",
         action="store_true",
-        help="When present sorting is reversed.",
+        help="If present sorting is reversed.",
     )
     parser.add_argument(
         "-v",
         "--verbose",
         action="store_true",
-        help="Prompts you before renaming and lists all names to be changed.",
+        help="Lists all names to be changed.",
     )
     parser.add_argument(
         "-q",

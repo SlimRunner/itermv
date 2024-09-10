@@ -198,11 +198,11 @@ def getArguments(*args: str) -> ArgsWrapper:
 
                 - {a} or {A} alphabetical counting.
 
-                - {d} the date in yyyy/mm/dd format.
+                - {d} the date in yyyy-mm-dd format.
 
-                - {T} time in hhmmss-uu format where u are microseconds.
+                - {T} time in hhmmss-uuuuuu format where u are microseconds.
 
-                - {t} time in hhmmss format.capitalize()
+                - {t} time in hhmmss format.
 
                 - {ext} the extension of the original file (including the dot).
 

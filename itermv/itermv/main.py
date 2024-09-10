@@ -4,18 +4,23 @@ from helpers import (
     askUser,
     renameFiles,
     renameDisjointFiles,
+    printChangesMade,
+    printNameMapping,
 )
 
 
 def main():
     args = getArguments()
-    filePairs = getFileNames(args.source.path, args)
+    included, ignored = getFileNames(args.source.path, args)
 
-    renameCount = 0
-    if askUser(filePairs, args):
+    printNameMapping(included, ignored, args)
+
+    if len(included) > 0 and askUser(included, args):
         if args.overlap:
-            renameCount = renameFiles(filePairs)
+            schedule = renameFiles(included)
         else:
-            renameCount = renameDisjointFiles(filePairs)
-        if args.verbose:
-            print(f"{renameCount} renames performed")
+            schedule = renameDisjointFiles(included)
+
+        printChangesMade(schedule, args)
+    elif len(included) == 0:
+        print("No changes to be made")

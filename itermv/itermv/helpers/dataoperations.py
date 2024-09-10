@@ -19,18 +19,6 @@ from argparse import ArgumentParser
 
 
 def askUser(filePairs, args: ArgsWrapper):
-    if args.verbose:
-        print("The following file names will be changed:\n")
-        print(f"The common directory is: {args.source.path}")
-        colSize = [0, 0]
-        for f, nf in filePairs:
-            colSize[0] = max(colSize[0], len(f.name))
-            colSize[1] = max(colSize[1], len(nf.name))
-        for f, nf in filePairs:
-            print(f"    {f.name:{colSize[0]}} -> {nf.name:{colSize[1]}}")
-    elif not args.quiet:
-        print(f"{len(filePairs)} files will be changed")
-
     if args.quiet:
         return True
     print()
@@ -41,7 +29,47 @@ def askUser(filePairs, args: ArgsWrapper):
     return len(userInput) > 0 and userInput in "Yy"
 
 
-def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]:
+def printNameMapping(
+    schedule: list[tuple[FileEntry, NewFile]],
+    ignored: list[tuple[FileEntry, NewFile]],
+    args: ArgsWrapper,
+):
+    if args.verbose:
+        print(f"The common directory is: {args.source.path}\n")
+
+        colSize = [0, 0]
+        for o, n in schedule + ignored:
+            colSize[0] = max(colSize[0], len(o.name))
+            colSize[1] = max(colSize[1], len(n.name))
+
+        print("The following files will be changed:")
+        for o, n in schedule:
+            print(f"    {o.name:{colSize[0]}} -> {n.name:{colSize[1]}}")
+
+        print("The following files will be ignored:")
+        for o, n in ignored:
+            print(f"    {o.name:{colSize[0]}} -> {n.name:{colSize[1]}}")
+
+    elif not args.quiet:
+        print(f"{len(schedule)} files will be changed")
+        print(f"{len(ignored)} files will be ignored")
+
+
+def printChangesMade(schedule: list[tuple[str, str]], args: ArgsWrapper):
+    schedule = [(os.path.basename(o), os.path.basename(n)) for o, n in schedule]
+    if args.verbose:
+        print("Changes performed:")
+        colSize = [0, 0]
+        for o, n in schedule:
+            colSize[0] = max(colSize[0], len(o))
+            colSize[1] = max(colSize[1], len(n))
+        for o, n in schedule:
+            print(f"    {o:{colSize[0]}} -> {n:{colSize[1]}}")
+    elif not args.quiet:
+        print(f"{len(schedule)} name changes performed")
+
+
+def getFileNames(path: str, opt: ArgsWrapper):
     files = []
     includeDir = lambda f: not (opt.exclude_dir and os.path.isdir(f))
     if opt.regex is not None:
@@ -65,7 +93,8 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
     if opt.sort.bySize():
         files = sorted(files, key=lambda file: file.size, reverse=opt.reverse_sort)
 
-    newFiles: list[tuple[FileEntry, NewFile]] = []
+    included: list[tuple[FileEntry, NewFile]] = []
+    ignored: list[tuple[FileEntry, NewFile]] = []
     newFileSet = set()
     indexStart = opt.start_number
     alpha = AlphaCounter(indexStart)
@@ -73,7 +102,7 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
     largestNum = RadixCounter(opt.radix, indexStart + +len(files))
     padsize = len(largestNum.str())
 
-    for i, f in enumerate(files):
+    for f in files:
         idx = index.str(False)
         idxUp = index.str(True)
         unixtime = f.mtime
@@ -106,14 +135,17 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
         if newFile in newFileSet:
             raise ValueError("Pattern provided does not yield unique names.")
         newFileSet.add(newFile)
-        newFiles.append((f, NewFile(newFile)))
+        if f.path == newFile:
+            ignored.append((f, NewFile(newFile)))
+        else:
+            included.append((f, NewFile(newFile)))
 
     existingFiles = {f2.path for f2 in files}
-    for _, file in newFiles:
-        if not (opt.overlap and file.path in existingFiles) and os.path.exists(
-            file.path
+    for _, newFile in included:
+        if not (opt.overlap and newFile.path in existingFiles) and os.path.exists(
+            newFile.path
         ):
-            if file.path in existingFiles:
+            if newFile.path in existingFiles:
                 errMsg = "There cannot be overlap between old and new names."
             else:
                 errMsg = (
@@ -121,7 +153,7 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
                 )
             raise FileExistsError(errMsg)
 
-    return newFiles
+    return included, ignored
 
 
 def getArguments(*args: str) -> ArgsWrapper:

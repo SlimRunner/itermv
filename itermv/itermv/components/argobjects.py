@@ -2,6 +2,7 @@ from components import InputPath
 
 import re
 
+
 class NamePattern:
     def __init__(self, pattern: str) -> None:
         self.__pattern = pattern

@@ -4,6 +4,7 @@ from utils import identifyCycle
 import os
 from random import randint
 
+
 def genTempName(path: str) -> str:
     num = randint(0xFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF)
     alnum = RadixCounter(36, num)
@@ -95,7 +96,7 @@ def renameFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> int:
 
     for old, new in schedule:
         os.rename(old, new)
-    
+
     return len(schedule)
 
 
@@ -109,5 +110,5 @@ def renameDisjointFiles(filePairs: list[tuple[FileEntry, NewFile]]) -> int:
     filePairs = [(o, n) for o, n in filePairs if o.path != n.path]
     for old, new in filePairs:
         os.rename(old.path, new.path)
-    
+
     return len(filePairs)

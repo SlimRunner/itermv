@@ -167,16 +167,13 @@ def getArguments(*args: str) -> ArgsWrapper:
 
                 - {d} the date in yyyy/mm/dd format.
 
-                - {T} time in hhmmss-uu format where u are
-                  microseconds.
+                - {T} time in hhmmss-uu format where u are microseconds.
 
                 - {t} time in hhmmss format.capitalize()
 
-                - {ext} the extension of the original file
-                  (including the dot).
+                - {ext} the extension of the original file (including the dot).
 
-                - {name} the name of the original file without the
-                  extension.
+                - {name} the name of the original file without the extension.
 
                 - {<number>} the string matched by REGEX where 0 is the entire
                   match, and any subsequent number identifies a capturing group.

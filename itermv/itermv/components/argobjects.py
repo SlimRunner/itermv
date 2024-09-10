@@ -1,5 +1,7 @@
 from components import InputPath
 
+import re
+
 class NamePattern:
     def __init__(self, pattern: str) -> None:
         self.__pattern = pattern
@@ -7,8 +9,12 @@ class NamePattern:
     def __repr__(self) -> str:
         return f"'{self.__pattern}'"
 
-    def evalPattern(self, **kwargs) -> str:
-        return self.__pattern.format(**kwargs)
+    def evalPattern(self, *matches, **kwargs) -> str:
+        pattern = self.__pattern
+        for capMatch in re.finditer(r"{(\d+)}", self.__pattern):
+            idx = int(capMatch.group(1))
+            pattern = pattern.replace(capMatch.group(0), matches[idx], 1)
+        return pattern.format(**kwargs)
 
 
 class SortingOptions:
@@ -77,7 +83,7 @@ class ArgsWrapper:
         return self.__radix
 
     @property
-    def regex(self) -> str:
+    def regex(self) -> str | None:
         return self.__regex
 
     @property

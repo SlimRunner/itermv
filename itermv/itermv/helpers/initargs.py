@@ -81,6 +81,11 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
         shortdate = ftime.date()
         longtime = str(ftime.time()).replace(":", "").replace(".", "-")
         shortime = str(ftime.replace(microsecond=0).time()).replace(":", "")
+        matches = []
+        if opt.regex is not None:
+            rawMatches = re.search(opt.regex, f.name)
+            matches = [rawMatches.group(0)]
+            matches.extend(rawMatches.groups())
         nameopts = {
             "n": idx,
             "N": idxUp,
@@ -97,7 +102,7 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
         }
         alpha.increase()
         index.increase()
-        newFile = os.path.join(path, opt.pattern.evalPattern(**nameopts))
+        newFile = os.path.join(path, opt.pattern.evalPattern(*matches, **nameopts))
         if newFile in newFileSet:
             raise ValueError("Pattern provided does not yield unique names.")
         newFileSet.add(newFile)
@@ -119,11 +124,17 @@ def getFileNames(path: str, opt: ArgsWrapper) -> list[tuple[FileEntry, NewFile]]
     return newFiles
 
 
+# https://stackoverflow.com/a/29485128
+class BlankLinesHelpFormatter(argparse.RawTextHelpFormatter):
+    def _split_lines(self, text, width):
+        return super()._split_lines(text, width) + [""]
+
+
 def getArguments(*args: str) -> ArgsWrapper:
     parser = ArgumentParser(
         prog="itermv",
         description="Provides tools to easily rename files within a given directory.",
-        formatter_class=argparse.RawTextHelpFormatter,
+        formatter_class=BlankLinesHelpFormatter,
     )
     parser.add_argument(
         "-s",
@@ -142,21 +153,34 @@ def getArguments(*args: str) -> ArgsWrapper:
             """\
             Name pattern to replace current names. Wrap replacement values within
             curly braces.
+
                 - {n} or {N} a sequential number in the order specified (uppercase
                   applies when radix is greater than 10).
-                - {n0} or {N0} a sequential number in the order specified padded with
-                  zeroes to largest integer
+
+                - {n0} or {N0} a sequential number in the order specified padded
+                  with zeroes to largest integer
+
                 - {n:0Kd} a sequential number in the order specified padded with
                   zeroes to a length of K characters.
+
                 - {a} or {A} alphabetical counting.
+
                 - {d} the date in yyyy/mm/dd format.
+
                 - {T} time in hhmmss-uu format where u are
                   microseconds.
+
                 - {t} time in hhmmss format.capitalize()
+
                 - {ext} the extension of the original file
                   (including the dot).
+
                 - {name} the name of the original file without the
                   extension.
+
+                - {<number>} the string matched by REGEX where 0 is the entire
+                  match, and any subsequent number identifies a capturing group.
+
                 - {unixt} unix time of the last modification.
             """
         ),

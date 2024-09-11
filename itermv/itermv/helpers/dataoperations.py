@@ -83,7 +83,7 @@ def getFileNames(path: str, opt: ArgsWrapper):
         files = [
             FileEntry(f, path)
             for f in os.listdir(path)
-            if includeDir(f) and re.match(opt.regex, f)
+            if includeDir(f) and re.search(opt.regex, f)
         ]
     else:
         files = [FileEntry(f, path) for f in os.listdir(path) if includeDir(f)]
@@ -118,10 +118,12 @@ def getFileNames(path: str, opt: ArgsWrapper):
         longtime = str(ftime.time()).replace(":", "").replace(".", "-")
         shortime = str(ftime.replace(microsecond=0).time()).replace(":", "")
         matches = []
+
         if opt.regex is not None:
             rawMatches = re.search(opt.regex, f.name)
             matches = [rawMatches.group(0)]
             matches.extend(rawMatches.groups())
+
         nameopts = {
             "n": idx,
             "N": idxUp,
@@ -136,12 +138,16 @@ def getFileNames(path: str, opt: ArgsWrapper):
             "name": f.noextname,
             "unixt": unixtime,
         }
+
         alpha.increase()
         index.increase()
+
+        matches = [m if m is not None else "" for m in matches]
         newFile = os.path.join(path, opt.pattern.evalPattern(*matches, **nameopts))
         if newFile in newFileSet:
             raise ValueError("Pattern provided does not yield unique names.")
         newFileSet.add(newFile)
+
         if f.path == newFile:
             ignored.append((f, NewFile(newFile)))
         else:

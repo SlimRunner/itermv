@@ -1,4 +1,4 @@
-from components import InputPath
+from itermv.components import InputPath
 
 import argparse
 

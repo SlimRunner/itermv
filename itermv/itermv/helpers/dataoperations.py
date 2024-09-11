@@ -1,4 +1,4 @@
-from components import (
+from itermv.components import (
     AlphaCounter,
     RadixCounter,
     ArgsWrapper,
@@ -9,7 +9,7 @@ from components import (
     SortingOptions,
     BlankLinesHelpFormatter,
 )
-from utils import nonNegativeNumber, positiveRadix
+from itermv.utils import nonNegativeNumber, positiveRadix
 
 import os
 import re

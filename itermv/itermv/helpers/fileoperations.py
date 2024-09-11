@@ -1,5 +1,5 @@
-from components import RadixCounter, FileEntry, NewFile
-from utils import identifyCycle
+from itermv.components import RadixCounter, FileEntry, NewFile
+from itermv.utils import identifyCycle
 
 import os
 from random import randint

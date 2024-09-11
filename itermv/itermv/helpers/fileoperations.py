@@ -12,7 +12,7 @@ def genTempName(path: str) -> str:
 
     # this is a temporary solution; however, it is very unlikely to fail
     # as-is, and that is an understatement. A much more elegant solution
-    # would include a thorough name generator that guarantees to finda a
+    # would include a thorough name generator that guarantees to find a
     # unique name in the current path.
 
     for _ in range(2):
@@ -21,6 +21,9 @@ def genTempName(path: str) -> str:
         num = randint(0xFFF_FFFF_FFFF_FFFF, 0xFFFF_FFFF_FFFF_FFFF)
         alnum = RadixCounter(36, num)
         tempname = os.path.join(path, alnum.str())
+
+    if not os.path.exists(tempname):
+        return tempname
 
     raise FileExistsError("Could not find an available name.")
 

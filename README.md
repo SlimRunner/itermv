@@ -17,3 +17,6 @@ pip3 install ./package_name/ --upgrade
 pip3 install -r requirements-dev.txt
 ```
 to install the required dependencies.
+
+## Version Control
+The project uses the [`bumpversion`](https://pypi.org/project/bumpversion/) packages see its documentation for more information. The projects under this repo will follow the `major.minor.patch` format.

@@ -10,6 +10,7 @@ from itermv.components import (
     BlankLinesHelpFormatter,
 )
 from itermv.utils import nonNegativeNumber, positiveRadix
+from itermv.version import __version__
 
 import os
 import re
@@ -174,6 +175,9 @@ def getArguments(*args: str) -> ArgsWrapper:
         prog="itermv",
         description="Provides tools to easily rename files within a given directory.",
         formatter_class=BlankLinesHelpFormatter,
+    )
+    parser.add_argument(
+        "--version", action="version", version=f"%(prog)s {__version__}"
     )
     parser.add_argument(
         "-s",

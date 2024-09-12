@@ -13,10 +13,15 @@ pip3 install ./package_name/ --upgrade
 
 ## Development
 [Create and activate a virtual environment](https://packaging.python.org/en/latest/guides/installing-using-pip-and-virtual-environments/) and then run
-```
+```sh
 pip3 install -r requirements-dev.txt
 ```
 to install the required dependencies.
 
 ## Version Control
-The project uses the [`bumpversion`](https://pypi.org/project/bumpversion/) packages see its documentation for more information. The projects under this repo will follow the `major.minor.patch` format.
+The project uses the [`bumpversion`](https://pypi.org/project/bumpversion/) package for version control. See its documentation for more information. The projects under this repo will follow the `major.minor.patch` format.
+
+Useful flags:
+- `--no-tag`
+- `--dry-run, -n`
+- `--verbose`

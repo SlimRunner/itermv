@@ -23,4 +23,4 @@ def main():
 
         printChangesMade(schedule, args)
     elif len(included) == 0:
-        print("\nNo changes to be made")
+        print("\nNo files are selected.")

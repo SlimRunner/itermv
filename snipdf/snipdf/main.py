@@ -9,7 +9,7 @@ from snipdf.version import __version__
 
 # TODO: add ghostscript and pdftk as dependencies instead of relying on
 # the system installed libraries
-GS_NAME = "gswin64c" if platform.system() == "Windows" else "gsc"
+GS_NAME = "gswin64c" if platform.system() == "Windows" else "gs"
 PDFTK_NAME = "pdftk"
 
 

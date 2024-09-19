@@ -1,3 +1,5 @@
+from itermv.utils import validateFilename
+
 import os
 
 
@@ -7,6 +9,8 @@ class NewFile:
         fdir, fname = os.path.split(path)
         self.__name = fname
         self.__parent = fdir
+        noxname, _ = os.path.splitext(fname)
+        validateFilename(noxname)
 
     def __repr__(self) -> str:
         return f"'{self.__path}'"

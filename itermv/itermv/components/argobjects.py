@@ -9,6 +9,49 @@ class BlankLinesHelpFormatter(argparse.RawTextHelpFormatter):
         return super()._split_lines(text, width) + [""]
 
 
+class TimeStampType:
+    OPTIONS = {"atime", "mtime", "ctime"}
+    BY_ACCESS_DATE = "atime"
+    BY_MODIFY_DATE = "mtime"
+    BY_META_DATE = "ctime"
+    DEFAULT = BY_ACCESS_DATE
+
+    def __init__(self, opt: str) -> None:
+        if opt not in TimeStampType.OPTIONS:
+            raise ValueError(f"'{opt}' is not a valid time type")
+        self.__options = {o: o == opt for o in TimeStampType.OPTIONS}
+        self.__selected = opt
+        print(self.__options)
+
+    def __repr__(self) -> str:
+        return self.__selected
+
+    def byAccessDate(self) -> bool:
+        return self.__options[TimeStampType.BY_ACCESS_DATE]
+
+    def byModifyDate(self) -> bool:
+        return self.__options[TimeStampType.BY_MODIFY_DATE]
+
+    def byMetaDate(self) -> bool:
+        return self.__options[TimeStampType.BY_META_DATE]
+
+
+class TimeSeparator:
+    DEFAULT = "-"
+
+    def __init__(self, char: str) -> None:
+        if len(char) > 1:
+            raise ValueError("separator must be 1 character")
+
+        # no need to further validate character here. The filename will
+        # be validated before renaming starts
+        self.__separator = char
+
+    @property
+    def char(self) -> str:
+        return self.__separator
+
+
 class NamePattern:
     def __init__(self, pattern: str) -> None:
         self.__pattern = pattern
@@ -58,6 +101,8 @@ class ArgsWrapper:
     def __init__(self, args) -> None:
         self.__source = args.source
         self.__pattern = args.pattern
+        self.__time_type = args.time_type
+        self.__time_separator = args.time_separator
         self.__start_number = args.start_number
         self.__radix = args.radix
         self.__regex = args.regex
@@ -77,6 +122,14 @@ class ArgsWrapper:
     @property
     def pattern(self) -> NamePattern:
         return self.__pattern
+
+    @property
+    def time_type(self) -> TimeStampType:
+        return self.__time_type
+
+    @property
+    def time_separator(self) -> TimeSeparator:
+        return self.__time_separator
 
     @property
     def start_number(self) -> int:

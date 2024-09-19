@@ -8,6 +8,8 @@ from itermv.components import (
     NamePattern,
     SortingOptions,
     BlankLinesHelpFormatter,
+    TimeStampType,
+    TimeSeparator,
 )
 from itermv.utils import nonNegativeNumber, positiveRadix
 from itermv.version import __version__
@@ -77,6 +79,36 @@ def printChangesMade(schedule: list[tuple[str, str]], args: ArgsWrapper):
         print("DRY RUN --")
 
 
+def getTimeFormats(file: FileEntry, ttype: TimeStampType, separator: TimeSeparator):
+    entries = {}
+    sep = separator.char
+
+    unixstamp = None
+    if ttype.byAccessDate():
+        unixstamp = file.atime
+    if ttype.byModifyDate():
+        unixstamp = file.mtime
+    if ttype.byMetaDate():
+        unixstamp = file.ctime
+
+    filetime = datetime.datetime.fromtimestamp(unixstamp)
+    xsec = filetime.microsecond
+    filetime = filetime.replace(microsecond=0)
+
+    entries["unixt"] = unixstamp
+    entries["d"] = str(filetime.date()).replace("-", sep)
+    basetime = str(filetime.time()).replace(":", sep)
+    entries["t"] = basetime
+
+    entries["tu"] = f"{basetime}{sep}{xsec:06d}"
+    xsec //= 1000
+    entries["tm"] = f"{basetime}{sep}{xsec:03d}"
+    xsec //= 10
+    entries["tc"] = f"{basetime}{sep}{xsec:02d}"
+
+    return entries
+
+
 def getFileNames(path: str, opt: ArgsWrapper):
     files = []
     includeDir = lambda f: not (opt.exclude_dir and os.path.isdir(f))
@@ -113,11 +145,7 @@ def getFileNames(path: str, opt: ArgsWrapper):
     for f in files:
         idx = index.str(False)
         idxUp = index.str(True)
-        unixtime = f.mtime
-        ftime = datetime.datetime.fromtimestamp(unixtime)
-        shortdate = ftime.date()
-        longtime = str(ftime.time()).replace(":", "").replace(".", "-")
-        shortime = str(ftime.replace(microsecond=0).time()).replace(":", "")
+        timeEntries = getTimeFormats(f, opt.time_type, opt.time_separator)
         matches = []
 
         if opt.regex is not None:
@@ -132,12 +160,9 @@ def getFileNames(path: str, opt: ArgsWrapper):
             "N0": f"{idxUp:0>{padsize}}",
             "a": alpha.str(upper=False),
             "A": alpha.str(upper=True),
-            "d": shortdate,
-            "T": longtime,
-            "t": shortime,
             "ext": f.extension,
             "name": f.noextname,
-            "unixt": unixtime,
+            **timeEntries,
         }
 
         alpha.increase()
@@ -210,9 +235,10 @@ def getArguments(*args: str) -> ArgsWrapper:
 
                 - {d} the date in yyyy-mm-dd format.
 
-                - {T} time in hhmmss-uuuuuu format where u are microseconds.
+                - {t<c,m,u>} time in hh-mm-ss-ccmuuu format where c, m, and u
+                  stand for are centi- mili- and micro-seconds respectively
 
-                - {t} time in hhmmss format.
+                - {t} time in hh-mm-ss format.
 
                 - {ext} the extension of the original file (including the dot).
 
@@ -227,12 +253,28 @@ def getArguments(*args: str) -> ArgsWrapper:
         type=NamePattern,
     )
     parser.add_argument(
+        "-t",
+        "--time-type",
+        nargs=1,
+        default=[TimeStampType.DEFAULT],
+        choices=TimeStampType.OPTIONS,
+        help="Specifies the type of the time stamps.",
+    )
+    parser.add_argument(
+        "-T",
+        "--time-separator",
+        nargs=1,
+        default=[TimeSeparator.DEFAULT],
+        metavar="CHAR",
+        help="Specifies the separator used for the time stamps.",
+    )
+    parser.add_argument(
         "-n",
         "--start-number",
         nargs=1,
         default=[0],
         metavar="NUMBER",
-        help="Determines the initial value (0 is default).",
+        help="Specifies the initial value (0 is default).",
         type=nonNegativeNumber,
     )
     parser.add_argument(
@@ -314,6 +356,8 @@ def getArguments(*args: str) -> ArgsWrapper:
 
     pArgs.source = pArgs.source[0]
     pArgs.pattern = pArgs.pattern[0]
+    pArgs.time_type = TimeStampType(pArgs.time_type[0])
+    pArgs.time_separator = TimeSeparator(pArgs.time_separator[0])
     pArgs.start_number = pArgs.start_number[0]
     pArgs.radix = pArgs.radix[0]
     pArgs.regex = pArgs.regex[0] if pArgs.regex is not None else None

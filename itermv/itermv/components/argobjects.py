@@ -21,7 +21,6 @@ class TimeStampType:
             raise ValueError(f"'{opt}' is not a valid time type")
         self.__options = {o: o == opt for o in TimeStampType.OPTIONS}
         self.__selected = opt
-        print(self.__options)
 
     def __repr__(self) -> str:
         return self.__selected

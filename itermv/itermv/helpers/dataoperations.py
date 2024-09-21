@@ -25,6 +25,9 @@ def askUser(args: ArgsWrapper):
     print()
     if args.quiet:
         return True
+    if args.dry_run:
+        print("Prompt skipped by dry-run...")
+        return True
     MSG = "Do you want to proceed? [Y]es/[N]o: "
     userInput = input(MSG)
     while len(userInput) != 1 or userInput not in "YyNn":

@@ -57,7 +57,7 @@ def getParams():
         "--page-ranges",
         nargs="+",
         metavar="RANGES",
-        help="each range can be a single page (X) of multiple pages (X-Y) where Y > X",
+        help="each range can be a single page (X) or multiple pages (X-Y) where Y > X",
     )
     parser.add_argument(
         "-i", "--input", nargs=1, metavar="INPUT", required=True, help="input file"

@@ -343,7 +343,7 @@ def getArguments(*args: str) -> ArgsWrapper:
         "-p",
         "--overlap",
         action="store_true",
-        help="Allow new names to overlap with existing names.",
+        help="Allow and automatically resolve collisions with existing names.",
     )
     parser.add_argument(
         "-d",

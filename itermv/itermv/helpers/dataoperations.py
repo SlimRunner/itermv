@@ -1,15 +1,15 @@
 from itermv.components import (
     AlphaCounter,
-    RadixCounter,
     ArgsWrapper,
+    BlankLinesHelpFormatter,
     FileEntry,
-    NewFile,
+    FilePairsAction,
     InputPath,
     NamePattern,
+    NewFile,
+    RadixCounter,
     SortingOptions,
-    BlankLinesHelpFormatter,
     TimeStampType,
-    TimeSeparator,
 )
 from itermv.utils import nonNegativeNumber, positiveRadix
 from itermv.version import __version__
@@ -43,7 +43,7 @@ def printNameMapping(
     if args.dry_run:
         print("-- DRY RUN")
     if args.verbose:
-        print(f"The common directory is: {args.source.path}\n")
+        print(f"The common directory is: {args.source_dir.path}\n")
 
         colSize = [0, 0]
         for o, n in schedule + ignored:
@@ -82,9 +82,9 @@ def printChangesMade(schedule: list[tuple[str, str]], args: ArgsWrapper):
         print("DRY RUN --")
 
 
-def getTimeFormats(file: FileEntry, ttype: TimeStampType, separator: TimeSeparator):
+def getTimeFormats(file: FileEntry, ttype: TimeStampType, separator: str):
     entries = {}
-    sep = separator.char
+    sep = separator
 
     unixstamp = None
     if ttype.byAccessDate():
@@ -148,7 +148,7 @@ def getFileNames(path: str, opt: ArgsWrapper):
     for f in files:
         idx = index.str(False)
         idxUp = index.str(True)
-        timeEntries = getTimeFormats(f, opt.time_type, opt.time_separator)
+        timeEntries = getTimeFormats(f, opt.time_stamp_type, opt.time_separator)
         matches = []
 
         if opt.regex is not None:
@@ -172,7 +172,7 @@ def getFileNames(path: str, opt: ArgsWrapper):
         index.increase()
 
         matches = [m if m is not None else "" for m in matches]
-        newFile = os.path.join(path, opt.pattern.evalPattern(*matches, **nameopts))
+        newFile = os.path.join(path, opt.rename_replace.evalPattern(*matches, **nameopts))
         if newFile in newFileSet:
             raise ValueError("Pattern provided does not yield unique names.")
         newFileSet.add(newFile)
@@ -207,71 +207,181 @@ def getArguments(*args: str) -> ArgsWrapper:
     parser.add_argument(
         "--version", action="version", version=f"%(prog)s {__version__}"
     )
-    parser.add_argument(
-        "-s",
-        "--source",
-        nargs=1,
-        default=[InputPath(os.getcwd())],
-        metavar="SOURCE",
-        help="source directory. If ommited the current working directory will be used.",
-        type=InputPath,
-    )
-    parser.add_argument(
-        "pattern",
-        nargs=1,
-        metavar="PATTERN",
-        help=textwrap.dedent(
+
+    # DEFINE GROUPS ===========================================================
+
+    repl_group = parser.add_argument_group(
+        "replacement method",
+        textwrap.dedent(
             """\
-            Name pattern to replace current names. Wrap replacement values within
-            curly braces.
+            Provides a few methods to rename files. They are mutually exclusive and choosing
+            one of these options is required.
+            
+            The following options apply to either PATTERN or DEST unless the --plain-text
+            flag is specified. Each option describes where its capture groups come from,
+            and they all follow the Python string interpolation format
 
-                - {n} or {N} a sequential number in the order specified (uppercase
-                  applies when radix is greater than 10).
+                - {n} or {N} a sequential number in the order specified (uppercase applies
+                  when radix is greater than 10).
 
-                - {n0} or {N0} a sequential number in the order specified padded
-                  with zeroes to largest integer
+                - {n0} or {N0} a sequential number in the order specified padded with zeroes
+                  to largest integer.
 
-                - {n:0Kd} a sequential number in the order specified padded with
-                  zeroes to a length of K characters.
+                - {n:0Kd} a sequential number in the order specified padded with zeroes to a
+                  length of K characters.
 
                 - {a} or {A} alphabetical counting.
 
-                - {d} the date in yyyy-mm-dd format.
+                - {d} the date in yyyy-mm-dd format using specified separator.
 
-                - {t<c,m,u>} time in hh-mm-ss-ccmuuu format where c, m, and u
-                  stand for are centi- mili- and micro-seconds respectively
+                - {t} time in hh-mm-ss format using specified separator.
 
-                - {t} time in hh-mm-ss format.
+                - {t<c,m,u>} time in hh-mm-ss-ccmuuu format where c, m, and u stand for are
+                  centi- mili- and micro-seconds respectively.
 
                 - {ext} the extension of the original file (including the dot).
 
                 - {name} the name of the original file without the extension.
 
-                - {<number>} the string matched by REGEX where 0 is the entire
-                  match, and any subsequent number identifies a capturing group.
+                - {<number>} the string matched by REGEX where 0 is the entire match, and
+                  any subsequent number identifies a capturing group.
 
                 - {unixt} unix time of the last modification.
             """
         ),
+    )
+    repl_exc_group = repl_group.add_mutually_exclusive_group(required=True)
+
+    slct_group = parser.add_argument_group(
+        "selection method",
+        textwrap.dedent(
+            """\
+            Provides a few methods to select files from SOURCE directory. They are mutually 
+            exclusive and choosing one is optional. If ommited all files are included.
+            """
+        ),
+    )
+    slct_exc_group = slct_group.add_mutually_exclusive_group(required=False)
+
+    sort_group = parser.add_argument_group(
+        "filter sorting options",
+        textwrap.dedent(
+            """\
+            Provides options to sort the filtered list of matches by a regex search.
+            """
+        ),
+    )
+
+    comm_group = parser.add_argument_group(
+        "other options",
+        textwrap.dedent(
+            """\
+            Common options to change the behavior of the operation.
+            """
+        ),
+    )
+
+    # DEFINE FLAGS ============================================================
+
+    repl_exc_group.add_argument(
+        "-p",
+        "--rename-replace",
+        nargs=1,
+        metavar="PATTERN",
+        help=textwrap.dedent(
+            """
+            Defines a pattern that renames based on the input file name and order specified.
+            If combined with --regex, the pattern can also utilize its capture groups.
+            """
+        ),
         type=NamePattern,
     )
-    parser.add_argument(
-        "-t",
-        "--time-type",
-        nargs=1,
-        default=[TimeStampType.DEFAULT],
-        choices=TimeStampType.OPTIONS,
-        help="Specifies the type of the time stamps.",
+    repl_exc_group.add_argument(
+        "-e",
+        "--rename-each",
+        nargs=2,
+        metavar=("REGEX", "REPL"),
+        help=textwrap.dedent(
+            """
+            Facilitates renaming a common pattern across multiple selections. Its capture
+            groups come from its REGEX argument even if combined with --regex.
+            """
+        ),
+        # type=NamePattern,
     )
-    parser.add_argument(
-        "-T",
-        "--time-separator",
-        nargs=1,
-        default=[TimeSeparator.DEFAULT],
-        metavar="CHAR",
-        help="Specifies the separator used for the time stamps.",
+    repl_exc_group.add_argument(
+        "-l",
+        "--rename-list",
+        nargs="+",
+        metavar="DEST",
+        help=textwrap.dedent(
+            """
+            Must have even number of entries and define a pair of old to new name. Useful
+            for column formatted rename lists.
+            """
+        ),
+        # type=NamePattern,
     )
-    parser.add_argument(
+    repl_exc_group.add_argument(
+        "-f",
+        "--rename-pairs",
+        nargs="+",
+        metavar="SRC DEST",
+        help=textwrap.dedent(
+            """
+            Must have an even number of entries and define a pair of old to new name. Useful
+            for column formatted rename lists or to redirect files into it. The arguments
+            are normal plain text.
+            """
+        ),
+        action=FilePairsAction,
+    )
+
+    slct_exc_group.add_argument(
+        "-R",
+        "--regex",
+        nargs=1,
+        metavar="REGEX",
+        help="Filter pattern to select files within directory (python regex)",
+    )
+    slct_exc_group.add_argument(
+        "-L",
+        "--file-list",
+        nargs="+",
+        metavar="SRC",
+        help=textwrap.dedent(
+            """
+            Explicitly write a list of files to select in the current directory. It provides
+            no capture groups.
+            """
+        ),
+    )
+
+    sort_group.add_argument(
+        "-s",
+        "--sort",
+        nargs=1,
+        default=[SortingOptions.DEFAULT],
+        choices=SortingOptions.OPTIONS,
+        help="Allows sorting files by some criterion.",
+    )
+    sort_group.add_argument(
+        "-r",
+        "--reverse-sort",
+        action="store_true",
+        help="If present sorting is reversed.",
+    )
+
+    comm_group.add_argument(
+        "-i",
+        "--source-dir",
+        nargs=1,
+        default=[InputPath(os.getcwd())],
+        metavar="SOURCE_DIR",
+        help="source directory. If ommited the current working directory will be used.",
+        type=InputPath,
+    )
+    comm_group.add_argument(
         "-n",
         "--start-number",
         nargs=1,
@@ -280,7 +390,53 @@ def getArguments(*args: str) -> ArgsWrapper:
         help="Specifies the initial value (0 is default).",
         type=nonNegativeNumber,
     )
-    parser.add_argument(
+    comm_group.add_argument(
+        "-d",
+        "--dry-run",
+        action="store_true",
+        help="Does not change anything. Useful in combination with verbose.",
+    )
+    comm_group.add_argument(
+        "-O",
+        "--overlap",
+        action="store_true",
+        help="Allow and automatically resolve collisions with existing names.",
+    )
+    comm_group.add_argument(
+        "-F",
+        "--include-self",
+        action="store_true",
+        help="If present considers itself to perform renaming.",
+    )
+    comm_group.add_argument(
+        "-X",
+        "--exclude-dir",
+        action="store_true",
+        help="If present directories are ignored.",
+    )
+    comm_group.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Lists all names to be changed.",
+    )
+    comm_group.add_argument(
+        "-t",
+        "--time-stamp-type",
+        nargs=1,
+        default=[TimeStampType.DEFAULT],
+        choices=TimeStampType.OPTIONS,
+        help="Specifies the type of the time stamps.",
+    )
+    comm_group.add_argument(
+        "-T",
+        "--time-separator",
+        nargs=1,
+        default=["-"],
+        metavar="SEPARATOR",
+        help="Specifies the separator used for the time stamps.",
+    )
+    comm_group.add_argument(
         "-k",
         "--radix",
         nargs=1,
@@ -289,81 +445,37 @@ def getArguments(*args: str) -> ArgsWrapper:
         help="Specifies the radix of the counting (10 is default).",
         type=positiveRadix,
     )
-    parser.add_argument(
-        "-r",
-        "--regex",
-        nargs=1,
-        metavar="REGEX",
-        help=textwrap.dedent(
-            """\
-            Filter pattern to include certain files (python regex). If ommited all
-            files are included.
-            """
-        ),
-    )
-    parser.add_argument(
-        "-f",
-        "--include-self",
+    comm_group.add_argument(
+        "-N",
+        "--plain-text",
         action="store_true",
-        help="If present considers itself to perform renaming.",
+        help="Disables pattern replacement in DEST arguments.",
     )
-    parser.add_argument(
-        "-x",
-        "--exclude-dir",
-        action="store_true",
-        help="If present directories are ignored.",
-    )
-    parser.add_argument(
-        "-o",
-        "--sort",
-        nargs=1,
-        default=[SortingOptions.DEFAULT],
-        choices=SortingOptions.OPTIONS,
-        help="Allows sorting files by some criterion.",
-    )
-    parser.add_argument(
-        "-i",
-        "--reverse-sort",
-        action="store_true",
-        help="If present sorting is reversed.",
-    )
-    parser.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Lists all names to be changed.",
-    )
-    parser.add_argument(
+    comm_group.add_argument(
         "-q",
         "--quiet",
         action="store_true",
         help="If present all prompts are skipped.",
     )
-    parser.add_argument(
-        "-p",
-        "--overlap",
-        action="store_true",
-        help="Allow and automatically resolve collisions with existing names.",
-    )
-    parser.add_argument(
-        "-d",
-        "--dry-run",
-        action="store_true",
-        help="Does not change anything. Useful in combination with verbose.",
-    )
+
+    # WRAP NAMESPACES =========================================================
 
     if len(args) > 0:
         pArgs = parser.parse_args(list(args))
     else:
         pArgs = parser.parse_args()
 
-    pArgs.source = pArgs.source[0]
-    pArgs.pattern = pArgs.pattern[0]
-    pArgs.time_type = TimeStampType(pArgs.time_type[0])
-    pArgs.time_separator = TimeSeparator(pArgs.time_separator[0])
+    setattr(pArgs, "arg_error", parser.error)
+    pArgs.rename_replace = pArgs.rename_replace[0]
+    # pArgs.rename_each # needs custom action
+    # pArgs.rename_replace # needs custom action
+    # pArgs.rename_replace # fine as is see FilePairsAction
+    pArgs.source_dir = pArgs.source_dir[0]
+    pArgs.time_stamp_type = TimeStampType(pArgs.time_stamp_type[0], parser.error)
+    pArgs.time_separator = pArgs.time_separator[0]
     pArgs.start_number = pArgs.start_number[0]
     pArgs.radix = pArgs.radix[0]
     pArgs.regex = pArgs.regex[0] if pArgs.regex is not None else None
-    pArgs.sort = SortingOptions(pArgs.sort[0])
+    pArgs.sort = SortingOptions(pArgs.sort[0], parser.error)
 
     return ArgsWrapper(pArgs)

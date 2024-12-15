@@ -1,12 +1,57 @@
-from itermv.components import InputPath
-
-import argparse
+from itermv.components import InputPath, NewFile
+from argparse import (
+    Action as ArgAction,
+    ArgumentParser,
+    Namespace,
+    RawTextHelpFormatter,
+)
+from typing import Any, Sequence, NoReturn
+from collections.abc import Callable
 
 
 # https://stackoverflow.com/a/29485128
-class BlankLinesHelpFormatter(argparse.RawTextHelpFormatter):
+class BlankLinesHelpFormatter(RawTextHelpFormatter):
     def _split_lines(self, text, width):
         return super()._split_lines(text, width) + [""]
+
+
+class FilePairsAction(ArgAction):
+    def __call__(
+        self,
+        parser: ArgumentParser,
+        namespace: Namespace,
+        values: str | Sequence[Any] | None,
+        option_string: str | None = None,
+    ) -> None:
+        if len(values) % 2 != 0:
+            parser.error("For this option arguments must come in pairs.")
+
+        out_list = []
+        set_src = set()
+        set_dest = set()
+        for i, val in enumerate(values):
+            try:
+                if i % 2:
+                    if val in set_src:
+                        parser.error(f"{val} is a duplicate in source names")
+                    set_src.add(val)
+                    new_item = InputPath(val)
+                else:
+                    if val in set_dest:
+                        parser.error(f"{val} is a duplicate in destination names")
+                    set_dest.add(val)
+                    new_item = NewFile(val)
+            except FileNotFoundError as err:
+                parser.error(str(err))
+            except NotADirectoryError as err:
+                parser.error(str(err))
+            except SystemError as err:
+                parser.error(str(err))
+            except Exception as err:
+                raise err
+            out_list.append(new_item)
+
+        setattr(namespace, self.dest, out_list)
 
 
 class TimeStampType:
@@ -16,9 +61,9 @@ class TimeStampType:
     BY_META_DATE = "ctime"
     DEFAULT = BY_ACCESS_DATE
 
-    def __init__(self, opt: str) -> None:
+    def __init__(self, opt: str, error_cb: Callable[[str], NoReturn]) -> None:
         if opt not in TimeStampType.OPTIONS:
-            raise ValueError(f"'{opt}' is not a valid time type")
+            error_cb(f"'{opt}' is not a valid time type for -T/--time-stamp-type flag")
         self.__options = {o: o == opt for o in TimeStampType.OPTIONS}
         self.__selected = opt
 
@@ -33,22 +78,6 @@ class TimeStampType:
 
     def byMetaDate(self) -> bool:
         return self.__options[TimeStampType.BY_META_DATE]
-
-
-class TimeSeparator:
-    DEFAULT = "-"
-
-    def __init__(self, char: str) -> None:
-        if len(char) > 1:
-            raise ValueError("separator must be 1 character")
-
-        # no need to further validate character here. The filename will
-        # be validated before renaming starts
-        self.__separator = char
-
-    @property
-    def char(self) -> str:
-        return self.__separator
 
 
 class NamePattern:
@@ -71,9 +100,9 @@ class SortingOptions:
     BY_SIZE = "size"
     DEFAULT = BY_NAME
 
-    def __init__(self, opt: str) -> None:
+    def __init__(self, opt: str, error_cb: Callable[[str], NoReturn]) -> None:
         if opt not in SortingOptions.OPTIONS:
-            raise ValueError(f"'{opt}' is not a valid sort type")
+            error_cb(f"'{opt}' is not a valid sort type for -s/--sort flag")
         self.__options = {o: o == opt for o in SortingOptions.OPTIONS}
         self.__selected = opt
 
@@ -98,9 +127,9 @@ class SortingOptions:
 
 class ArgsWrapper:
     def __init__(self, args) -> None:
-        self.__source = args.source
-        self.__pattern = args.pattern
-        self.__time_type = args.time_type
+        self.__source_dir = args.source_dir
+        self.__rename_replace = args.rename_replace
+        self.__time_stamp_type = args.time_stamp_type
         self.__time_separator = args.time_separator
         self.__start_number = args.start_number
         self.__radix = args.radix
@@ -113,21 +142,22 @@ class ArgsWrapper:
         self.__quiet = args.quiet
         self.__overlap = args.overlap
         self.__dry_run = args.dry_run
+        self.__arg_error = args.arg_error
 
     @property
-    def source(self) -> InputPath:
-        return self.__source
+    def source_dir(self) -> InputPath:
+        return self.__source_dir
 
     @property
-    def pattern(self) -> NamePattern:
-        return self.__pattern
+    def rename_replace(self) -> NamePattern:
+        return self.__rename_replace
 
     @property
-    def time_type(self) -> TimeStampType:
-        return self.__time_type
+    def time_stamp_type(self) -> TimeStampType:
+        return self.__time_stamp_type
 
     @property
-    def time_separator(self) -> TimeSeparator:
+    def time_separator(self) -> str:
         return self.__time_separator
 
     @property
@@ -173,3 +203,7 @@ class ArgsWrapper:
     @property
     def dry_run(self) -> bool:
         return self.__dry_run
+
+    @property
+    def arg_error(self) -> bool:
+        return self.__arg_error

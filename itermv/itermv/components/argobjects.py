@@ -1,4 +1,4 @@
-from itermv.components import InputPath, NewFile
+from itermv.components import FileEntry, NewFile
 from argparse import (
     Action as ArgAction,
     ArgumentParser,
@@ -15,7 +15,7 @@ class BlankLinesHelpFormatter(RawTextHelpFormatter):
         return super()._split_lines(text, width) + [""]
 
 
-class FilePairsAction(ArgAction):
+class PairifyAction(ArgAction):
     def __call__(
         self,
         parser: ArgumentParser,
@@ -24,32 +24,16 @@ class FilePairsAction(ArgAction):
         option_string: str | None = None,
     ) -> None:
         if len(values) % 2 != 0:
-            parser.error("For this option arguments must come in pairs.")
+            parser.error(f"For {option_string} arguments must come in pairs.")
 
-        out_list = []
-        set_src = set()
-        set_dest = set()
+        out_list: list[tuple[str, str]] = []
+        partial_item = None
         for i, val in enumerate(values):
-            try:
-                if i % 2:
-                    if val in set_src:
-                        parser.error(f"{val} is a duplicate in source names")
-                    set_src.add(val)
-                    new_item = InputPath(val)
-                else:
-                    if val in set_dest:
-                        parser.error(f"{val} is a duplicate in destination names")
-                    set_dest.add(val)
-                    new_item = NewFile(val)
-            except FileNotFoundError as err:
-                parser.error(str(err))
-            except NotADirectoryError as err:
-                parser.error(str(err))
-            except SystemError as err:
-                parser.error(str(err))
-            except Exception as err:
-                raise err
-            out_list.append(new_item)
+            if partial_item is None:
+                partial_item = val
+            else:
+                out_list.append((partial_item, val))
+                partial_item = None
 
         setattr(namespace, self.dest, out_list)
 
@@ -59,11 +43,11 @@ class TimeStampType:
     BY_ACCESS_DATE = "atime"
     BY_MODIFY_DATE = "mtime"
     BY_META_DATE = "ctime"
-    DEFAULT = BY_ACCESS_DATE
+    DEFAULT = BY_MODIFY_DATE
 
-    def __init__(self, opt: str, error_cb: Callable[[str], NoReturn]) -> None:
+    def __init__(self, opt: str) -> None:
         if opt not in TimeStampType.OPTIONS:
-            error_cb(f"'{opt}' is not a valid time type for -T/--time-stamp-type flag")
+            raise ValueError(f"'{opt}' is not a valid time stamp type")
         self.__options = {o: o == opt for o in TimeStampType.OPTIONS}
         self.__selected = opt
 
@@ -100,9 +84,9 @@ class SortingOptions:
     BY_SIZE = "size"
     DEFAULT = BY_NAME
 
-    def __init__(self, opt: str, error_cb: Callable[[str], NoReturn]) -> None:
+    def __init__(self, opt: str) -> None:
         if opt not in SortingOptions.OPTIONS:
-            error_cb(f"'{opt}' is not a valid sort type for -s/--sort flag")
+            raise ValueError(f"'{opt}' is not a valid sorting type")
         self.__options = {o: o == opt for o in SortingOptions.OPTIONS}
         self.__selected = opt
 
@@ -126,59 +110,105 @@ class SortingOptions:
 
 
 class ArgsWrapper:
+    IN_REGEX = 0
+    IN_LIST_PLAIN = 1
+    OUT_PATTERN = 10
+    OUT_REGEX_INLINE = 11
+    OUT_LIST_PLAIN = 12
+    OUT_LIST_PATTERN = 13
+
     def __init__(self, args) -> None:
-        self.__source_dir = args.source_dir
+        self.__arg_error = args.arg_error
         self.__rename_replace = args.rename_replace
-        self.__time_stamp_type = args.time_stamp_type
-        self.__time_separator = args.time_separator
-        self.__start_number = args.start_number
-        self.__radix = args.radix
+        self.__rename_each = args.rename_each
+        self.__rename_list = args.rename_list
+        self.__rename_pairs = args.rename_pairs
         self.__regex = args.regex
-        self.__include_self = args.include_self
-        self.__exclude_dir = args.exclude_dir
+        self.__file_list = args.file_list
+
         self.__sort = args.sort
         self.__reverse_sort = args.reverse_sort
-        self.__verbose = args.verbose
-        self.__quiet = args.quiet
-        self.__overlap = args.overlap
+        self.__source_dir = args.source_dir
+        self.__start_number = args.start_number
         self.__dry_run = args.dry_run
-        self.__arg_error = args.arg_error
+        self.__overlap = args.overlap
+        self.__include_self = args.include_self
+        self.__exclude_dir = args.exclude_dir
+        self.__verbose = args.verbose
+        self.__time_stamp_type = args.time_stamp_type
+        self.__time_separator = args.time_separator
+        self.__radix = args.radix
+        self.__no_plain_text = args.no_plain_text
+        self.__quiet = args.quiet
+
+    def get_source_type(self):
+        if self.regex is not None:
+            return ArgsWrapper.IN_REGEX
+        elif self.file_list is not None:
+            return ArgsWrapper.IN_LIST_PLAIN
+        else:
+            self.arg_error("Failure in replacement exclusive group")
+
+    def get_sources(self):
+        if self.regex is not None:
+            return self.regex
+        elif self.file_list is not None:
+            return self.file_list
+        else:
+            self.arg_error("Failure in replacement exclusive group")
+
+    def get_dest_type(self):
+        if self.rename_replace is not None:
+            return ArgsWrapper.OUT_PATTERN
+        elif self.rename_each is not None:
+            return ArgsWrapper.OUT_REGEX_INLINE
+        elif self.rename_list is not None or self.rename_pairs is not None:
+            if self.no_plain_text:
+                return ArgsWrapper.OUT_LIST_PATTERN
+            else:
+                return ArgsWrapper.OUT_LIST_PLAIN
+        else:
+            self.arg
+
+    def get_destinations(self):
+        if self.rename_replace is not None:
+            return self.rename_replace
+        elif self.rename_each is not None:
+            return self.rename_each
+        elif self.rename_list is not None:
+            return self.rename_list
+        elif self.rename_pairs is not None:
+            return [d for _, d in self.rename_pairs]
+        else:
+            self.arg_error("Failure in replacement exclusive group")
 
     @property
-    def source_dir(self) -> InputPath:
-        return self.__source_dir
+    def arg_error(self) -> Callable[[str], NoReturn]:
+        return self.__arg_error
 
     @property
     def rename_replace(self) -> NamePattern:
         return self.__rename_replace
 
     @property
-    def time_stamp_type(self) -> TimeStampType:
-        return self.__time_stamp_type
+    def rename_each(self) -> tuple[str | NamePattern] | None:
+        return self.__rename_each
 
     @property
-    def time_separator(self) -> str:
-        return self.__time_separator
+    def rename_list(self) -> list[NewFile | NamePattern] | None:
+        return self.__rename_list
 
     @property
-    def start_number(self) -> int:
-        return self.__start_number
-
-    @property
-    def radix(self) -> int:
-        return self.__radix
+    def rename_pairs(self) -> list[tuple[FileEntry, NewFile | NamePattern]] | None:
+        return self.__rename_pairs
 
     @property
     def regex(self) -> str | None:
         return self.__regex
 
     @property
-    def include_self(self) -> bool:
-        return self.__include_self
-
-    @property
-    def exclude_dir(self) -> bool:
-        return self.__exclude_dir
+    def file_list(self) -> list[FileEntry] | None:
+        return self.__file_list
 
     @property
     def sort(self) -> SortingOptions:
@@ -189,21 +219,49 @@ class ArgsWrapper:
         return self.__reverse_sort
 
     @property
-    def verbose(self) -> bool:
-        return self.__verbose
+    def source_dir(self) -> FileEntry:
+        return self.__source_dir
 
     @property
-    def quiet(self) -> bool:
-        return self.__quiet
-
-    @property
-    def overlap(self) -> bool:
-        return self.__overlap
+    def start_number(self) -> int:
+        return self.__start_number
 
     @property
     def dry_run(self) -> bool:
         return self.__dry_run
 
     @property
-    def arg_error(self) -> bool:
-        return self.__arg_error
+    def overlap(self) -> bool:
+        return self.__overlap
+
+    @property
+    def include_self(self) -> bool:
+        return self.__include_self
+
+    @property
+    def exclude_dir(self) -> bool:
+        return self.__exclude_dir
+
+    @property
+    def verbose(self) -> bool:
+        return self.__verbose
+
+    @property
+    def time_stamp_type(self) -> TimeStampType:
+        return self.__time_stamp_type
+
+    @property
+    def time_separator(self) -> str:
+        return self.__time_separator
+
+    @property
+    def radix(self) -> int:
+        return self.__radix
+
+    @property
+    def no_plain_text(self) -> bool:
+        return self.__no_plain_text
+
+    @property
+    def quiet(self) -> bool:
+        return self.__quiet

@@ -267,8 +267,8 @@ def getArguments(*args: str) -> ArgsWrapper:
         metavar="DEST",
         help=textwrap.dedent(
             """\
-            Must match the number of source files. Useful for column formatted rename lists.
-            Recommended in combination with --file-list.
+            Must match the number of source files. Useful when using globbing patterns for
+            source. Recommended in combination with --file-list.
             """
         ),
     )
@@ -280,7 +280,7 @@ def getArguments(*args: str) -> ArgsWrapper:
         help=textwrap.dedent(
             """\
             Must have an even number of entries and define a pair of old to new name. Useful
-            for column formatted rename lists or to redirect files into it.
+            for column formatted rename lists or when piping from other commands.
             """
         ),
         action=PairifyAction,

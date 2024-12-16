@@ -119,14 +119,15 @@ def externalCollisions(ofiles: list[NewFile], innerset: set[FileEntry]):
     return outSet
 
 
-def validateUnique(files: list, getname: Callable[[Any], str]):
+def getRepeats(files: list, getname: Callable[[Any], str]):
+    rset = set()
     fset = set()
     for file in files:
         file = getname(file)
         if file in fset:
-            return False
+            rset.add(file)
         fset.add(file)
-    return True
+    return rset
 
 
 def expandPatterns(
@@ -193,7 +194,7 @@ def getFileNames(opt: ArgsWrapper):
     if inFiles is None:
         opt.arg_error("fatal error: input file list is None")
 
-    if validateUnique(inFiles, lambda f: f.name):
+    if getRepeats(inFiles, lambda f: f.name):
         opt.arg_error("fatal error: input files are guaranteed to be unique.")
 
     if not opt.is_source_ordered():
@@ -212,25 +213,28 @@ def getFileNames(opt: ArgsWrapper):
     match opt.get_dest_type():
         case ArgsWrapper.OUT_PATTERN:
             # destGen: NamePattern
-            outFiles = expandPatterns(((f, destGen) for f in inFiles), opt.regex, opt)
+            outFiles = expandPatterns([(f, destGen) for f in inFiles], opt.regex, opt)
         case ArgsWrapper.OUT_REGEX_INLINE:
             # destGen: tuple(str, NamePattern)
             rgx, patt = destGen
-            outFiles = expandPatterns(((f, patt) for f in inFiles), rgx, opt)
+            outFiles = expandPatterns([(f, patt) for f in inFiles], rgx, opt)
         case ArgsWrapper.OUT_PAIR_LIST | ArgsWrapper.OUT_FILE_LIST:
-            if opt.no_plain_text:
+            if not opt.no_plain_text:
                 # destGen: list[NewFile]
                 outFiles = destGen
             else:
                 # destGen: list[NamePattern]
                 outFiles = expandPatterns(
-                    ((f, p) for f, p in zip(inFiles, destGen)), None, opt
+                    [(f, p) for f, p in zip(inFiles, destGen)], None, opt
                 )
 
     if len(inFiles) != len(outFiles):
         opt.arg_error("Number of entries in source and destination must match.")
 
-    validateUnique(outFiles, lambda f: f.name)
+    oreps = getRepeats(outFiles, lambda f: f.name)
+    if oreps:
+        opt.arg_error(f"Generated output files are not unique: {oreps}")
+
     intcoll = internalCollisions(inFiles, outFiles)
     extcoll = externalCollisions(outFiles, intcoll)
     if not opt.overlap and intcoll:
@@ -241,9 +245,9 @@ def getFileNames(opt: ArgsWrapper):
     included: list[tuple[FileEntry, NewFile]] = []
     ignored: list[tuple[FileEntry, NewFile]] = []
     for ifile, ofile in zip(inFiles, outFiles):
-        if (ifile.name.path == ofile.path):
-            ignored.append(ifile, ofile)
+        if (ifile.path == ofile.path):
+            ignored.append((ifile, ofile))
         else:
-            included.append(ifile, ofile)
+            included.append((ifile, ofile))
 
     return included, ignored

@@ -69,6 +69,7 @@ def formatDestList(root: str, input: list[str] | None, use_plain: bool, err_cb: 
                 err_cb(f"destination files must be top level")
             if name in name_set:
                 err_cb(f"{name} is a duplicate destination name")
+            _, name = os.path.split(name)
             name_set.add(name)
             out_list.append(NewFile(os.path.join(root, name)))
     else:
@@ -98,7 +99,9 @@ def formatSrcDestList(
                 err_cb(f"{src} is a duplicate source name")
             if dest in dest_set:
                 err_cb(f"{dest} is a duplicate destination name")
+            _, src = os.path.split(src)
             src_set.add(src)
+            _, dest = os.path.split(dest)
             dest_set.add(dest)
             try:
                 out_list.append(
@@ -115,6 +118,7 @@ def formatSrcDestList(
                 err_cb(f"input files must be top level")
             if src in src_set:
                 err_cb(f"{src} is a duplicate source name")
+            _, src = os.path.split(src)
             src_set.add(src)
             try:
                 out_list.append((FileEntry(src, root), NamePattern(dest)))

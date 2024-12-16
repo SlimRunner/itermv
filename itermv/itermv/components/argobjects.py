@@ -184,11 +184,10 @@ class ArgsWrapper:
             return ArgsWrapper.OUT_PATTERN
         elif self.rename_each is not None:
             return ArgsWrapper.OUT_REGEX_INLINE
-        elif self.rename_list is not None or self.rename_pairs is not None:
-            if self.no_plain_text:
-                return ArgsWrapper.OUT_FILE_LIST
-            else:
-                return ArgsWrapper.OUT_PAIR_LIST
+        elif self.rename_list is not None:
+            return ArgsWrapper.OUT_FILE_LIST
+        elif self.rename_pairs is not None:
+            return ArgsWrapper.OUT_PAIR_LIST
         else:
             return ArgsWrapper.OUT_MISSING
 

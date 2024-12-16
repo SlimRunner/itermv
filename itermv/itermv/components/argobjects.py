@@ -1,4 +1,4 @@
-from itermv.components import FileEntry, NewFile
+from itermv.components import FileEntry, NewFile, InputPath
 from argparse import (
     Action as ArgAction,
     ArgumentParser,
@@ -166,8 +166,8 @@ class ArgsWrapper:
         match self.get_source_type():
             case ArgsWrapper.IN_REGEX:
                 return [
-                    FileEntry(f, spath)
-                    for f in os.listdir(spath)
+                    FileEntry(f, spath.path)
+                    for f in os.listdir(spath.path)
                     if includeDir(f) and re.search(self.regex, f)
                 ]
             case ArgsWrapper.IN_FILE_LIST:
@@ -175,7 +175,11 @@ class ArgsWrapper:
             case ArgsWrapper.IN_PAIR_LIST:
                 return [s for s, _ in self.rename_pairs]
             case ArgsWrapper.IN_ALL:
-                return [FileEntry(f, spath) for f in os.listdir(spath) if includeDir(f)]
+                return [
+                    FileEntry(f, spath.path)
+                    for f in os.listdir(spath.path)
+                    if includeDir(f)
+                ]
             case _:
                 return None
 
@@ -243,7 +247,7 @@ class ArgsWrapper:
         return self.__reverse_sort
 
     @property
-    def source_dir(self) -> FileEntry:
+    def source_dir(self) -> InputPath:
         return self.__source_dir
 
     @property

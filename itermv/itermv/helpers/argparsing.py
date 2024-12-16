@@ -32,8 +32,12 @@ def getInputList(path: str, flist: list[str] | None, err_cb: Err_Callback):
     for file in flist:
         if not isTopLevelPath(path, file):
             err_cb(f"input files must be top level")
+
+        file = os.path.basename(file)
+
         if file in name_set:
             err_cb(f"{file} is a duplicate destination name")
+
         name_set.add(file)
         try:
             name_list.append(FileEntry(file, path))

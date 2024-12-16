@@ -71,7 +71,7 @@ class NamePattern:
         self.__pattern = pattern
 
     def __repr__(self) -> str:
-        return f"'{self.__pattern}'"
+        return self.__pattern
 
     def evalPattern(self, *matches, **options) -> str:
         return self.__pattern.format(*matches, **options)

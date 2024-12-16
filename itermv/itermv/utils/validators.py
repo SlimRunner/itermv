@@ -1,3 +1,6 @@
+from os.path import abspath, join, dirname, relpath
+
+
 def nonNegativeNumber(arg: str):
     value = int(arg)
     if value < 0:
@@ -29,6 +32,15 @@ def identifyCycle(
             node = graph[node]
 
     return (node, prev)
+
+
+def isTopLevelPath(dir: str, file: str):
+    dir_abs = abspath(dir)
+    file_abs = abspath(join(dir_abs, file))
+
+    parent_dir = dirname(file_abs)
+
+    return relpath(parent_dir, dir_abs) == "."
 
 
 def validateFilename(name: str) -> None:

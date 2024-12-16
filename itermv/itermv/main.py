@@ -11,7 +11,7 @@ from itermv.helpers import (
 
 def main():
     args = getArguments()
-    included, ignored = getFileNames(args.source.path, args)
+    included, ignored = getFileNames(args)
 
     printNameMapping(included, ignored, args)
 

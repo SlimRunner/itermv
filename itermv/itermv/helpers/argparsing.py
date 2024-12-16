@@ -30,7 +30,7 @@ def getInputList(path: str, flist: list[str] | None, err_cb: Err_Callback):
     name_set = set()
 
     for file in flist:
-        if not isTopLevelPath(file):
+        if not isTopLevelPath(path, file):
             err_cb(f"input files must be top level")
         if file in name_set:
             err_cb(f"{file} is a duplicate destination name")
@@ -65,11 +65,11 @@ def formatDestList(root: str, input: list[str] | None, use_plain: bool, err_cb: 
     if use_plain:
         name_set = set()
         for name in input:
-            if not isTopLevelPath(name):
+            if not isTopLevelPath(root, name):
                 err_cb(f"destination files must be top level")
             if name in name_set:
                 err_cb(f"{name} is a duplicate destination name")
-            _, name = os.path.split(name)
+            name = os.path.basename(name)
             name_set.add(name)
             out_list.append(NewFile(os.path.join(root, name)))
     else:
@@ -91,17 +91,17 @@ def formatSrcDestList(
         src_set = set()
         dest_set = set()
         for src, dest in input:
-            if not isTopLevelPath(src):
+            if not isTopLevelPath(root, src):
                 err_cb(f"input files must be top level")
-            if not isTopLevelPath(dest):
+            if not isTopLevelPath(root, dest):
                 err_cb(f"destination files must be top level")
             if src in src_set:
                 err_cb(f"{src} is a duplicate source name")
             if dest in dest_set:
                 err_cb(f"{dest} is a duplicate destination name")
-            _, src = os.path.split(src)
+            src = os.path.basename(src)
             src_set.add(src)
-            _, dest = os.path.split(dest)
+            dest = os.path.basename(dest)
             dest_set.add(dest)
             try:
                 out_list.append(
@@ -114,11 +114,11 @@ def formatSrcDestList(
     else:
         src_set = set()
         for src, dest in input:
-            if not isTopLevelPath(src):
+            if not isTopLevelPath(root, src):
                 err_cb(f"input files must be top level")
             if src in src_set:
                 err_cb(f"{src} is a duplicate source name")
-            _, src = os.path.split(src)
+            src = os.path.basename(src)
             src_set.add(src)
             try:
                 out_list.append((FileEntry(src, root), NamePattern(dest)))

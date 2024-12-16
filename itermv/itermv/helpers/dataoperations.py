@@ -7,11 +7,12 @@ from itermv.components import (
     TimeStampType,
     NamePattern,
 )
+from itermv.utils import isTopLevelPath
 
 import os
 import re
 import datetime
-from typing import Any, NoReturn
+from typing import Any
 from collections.abc import Callable
 
 
@@ -106,14 +107,14 @@ def getTimeFormats(file: FileEntry, ttype: TimeStampType, separator: str):
     return entries
 
 
-def internalCollisions(ifiles: list, ofiles: list):
+def internalCollisions(ifiles: list[str], ofiles: list[str]):
     return set(ifiles).intersection(set(ofiles))
 
 
 def externalCollisions(ofiles: list[NewFile], innerset: set[FileEntry]):
-    outSet = {}
+    outSet = set()
     for file in ofiles:
-        if os.path.exists(file) and file not in innerset:
+        if os.path.exists(file.path) and file.path not in innerset:
             outSet.add(file.name)
 
     return outSet
@@ -179,8 +180,11 @@ def expandPatterns(
         index.increase()
 
         matches = [m if m is not None else "" for m in matches]
-        fEntry = NewFile(os.path.join(spath, pattern.evalPattern(*matches, **nameopts)))
-        outFiles.append(fEntry)
+        destName = pattern.evalPattern(*matches, **nameopts)
+        if not isTopLevelPath(spath, destName):
+            args.arg_error("Destination must also result in top level paths")
+        destName = NewFile(os.path.join(spath, os.path.basename(destName)))
+        outFiles.append(destName)
 
     return outFiles
 
@@ -235,8 +239,9 @@ def getFileNames(opt: ArgsWrapper):
     if oreps:
         opt.arg_error(f"Generated output files are not unique: {oreps}")
 
-    intcoll = internalCollisions(inFiles, outFiles)
+    intcoll = internalCollisions((f.path for f in inFiles), (f.path for f in outFiles))
     extcoll = externalCollisions(outFiles, intcoll)
+
     if not opt.overlap and intcoll:
         opt.arg_error(f"Try using --overlap. There are internal collisions: {intcoll}")
     if extcoll:

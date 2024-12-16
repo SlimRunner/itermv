@@ -50,7 +50,7 @@ Another important note about `--rename-each` is that currently it replaces ALL i
 
 Finally, `SRC` and `DEST` are both plain text. However, you may activate `PATTERN` behavior if you use the `--no-plain-text` flag.
 
-The following will describe the commands succintly. For the full documentation consult the `--help` flag.
+The following will describe the commands succinctly. For the full documentation consult the `--help` flag.
 
 ### Patterns
 There are more options for the patterns than capture groups, and are the following:
@@ -74,7 +74,7 @@ These are useful in combination with sequential numbering such as `{n0}`, alphab
 For full documentation on all the flags see the command help (`-h`).
 
 ### Other Options
-- `-i SOURCE_DIR`, `--source-dir SOURCE_DIR` source directory. If ommited the current working directory will be used.
+- `-i SOURCE_DIR`, `--source-dir SOURCE_DIR` source directory. If omitted the current working directory will be used.
 - `-n NUMBER`, `--start-number NUMBER` Specifies the initial value (0 is default).
 - `-d`, `--dry-run` Does not change anything. Useful in combination with verbose.
 - `-O`, `--overlap` Allow and automatically resolve collisions with existing names.
@@ -104,8 +104,8 @@ itermv -Ne '([A-Za-z]+)-(\d+)' '{2}-{1}'
 ```
 
 #### Collision avoidance
-All the previous ones will fail if there are cycles of any sort or self references between source and destination names. The following showscases the collision avoidance
+All the previous ones will fail if there are cycles of any sort or self references between source and destination names. The following showcases the collision avoidance
 ```bash
 itermv -OL A B C X Y Z -l B C D Y Z X
 ```
-This will not use any temporary name because it automatically recognizes that it can use `A` as a temporary name since it will overriden and not re-added. If there is only pure cycles it will use at most one randomly generated name as temporary.
+This will not use any temporary name because it automatically recognizes that it can use `A` as a temporary name since it will overridden and not re-added. If there is only pure cycles it will use at most one randomly generated name as temporary.

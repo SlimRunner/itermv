@@ -131,10 +131,20 @@ def getRepeats(files: list, getname: Callable[[Any], str]):
     return rset
 
 
+def inlineReplacer(pattern: NamePattern, **options):
+    def inrepl(match: re.Match):
+        matches = [match.group(0)]
+        matches.extend(match.groups())
+        matches = [m if m is not None else "" for m in matches]
+        return pattern.evalPattern(*matches, **options)
+    return inrepl
+
+
 def expandPatterns(
     entries: list[tuple[FileEntry, NamePattern]],
     regex: str | None,
     args: ArgsWrapper,
+    useRepl: bool,
 ):
     outFiles: list[NewFile] = []
     spath = args.source_dir.path
@@ -151,19 +161,6 @@ def expandPatterns(
         matches = []
         rgxMatch = None
 
-        if regex is not None:
-            rgxMatch = re.search(regex, file.name)
-
-        if rgxMatch is None:
-            outFiles.append(
-                NewFile(os.path.join(spath, file.name))
-            )
-            continue
-        else:
-            # get the full match and capture groups
-            matches = [rgxMatch.group(0)]
-            matches.extend(rgxMatch.groups())
-
         nameopts = {
             "n": idx,
             "N": idxUp,
@@ -176,13 +173,34 @@ def expandPatterns(
             **timeEntries,
         }
 
+        if regex is not None and not useRepl:
+            rgxMatch = re.search(regex, file.name)
+        elif regex is not None:
+            destName = re.sub(regex, inlineReplacer(pattern, **nameopts), file.name)
+            if not isTopLevelPath(spath, destName):
+                args.arg_error("Destination must also result in a top level path")
+            outFiles.append(
+                NewFile(os.path.join(spath, os.path.basename(destName)))
+            )
+            continue
+
+        if rgxMatch is None:
+            outFiles.append(
+                NewFile(os.path.join(spath, file.name))
+            )
+            continue
+        else:
+            # get the full match and capture groups
+            matches = [rgxMatch.group(0)]
+            matches.extend(rgxMatch.groups())
+
         alpha.increase()
         index.increase()
 
         matches = [m if m is not None else "" for m in matches]
         destName = pattern.evalPattern(*matches, **nameopts)
         if not isTopLevelPath(spath, destName):
-            args.arg_error("Destination must also result in top level paths")
+            args.arg_error("Destination must also result in a top level path")
         destName = NewFile(os.path.join(spath, os.path.basename(destName)))
         outFiles.append(destName)
 
@@ -217,11 +235,13 @@ def getFileNames(opt: ArgsWrapper):
     match opt.get_dest_type():
         case ArgsWrapper.OUT_PATTERN:
             # destGen: NamePattern
-            outFiles = expandPatterns([(f, destGen) for f in inFiles], opt.regex, opt)
+            outFiles = expandPatterns(
+                [(f, destGen) for f in inFiles], opt.regex, opt, False
+            )
         case ArgsWrapper.OUT_REGEX_INLINE:
             # destGen: tuple(str, NamePattern)
             rgx, patt = destGen
-            outFiles = expandPatterns([(f, patt) for f in inFiles], rgx, opt)
+            outFiles = expandPatterns([(f, patt) for f in inFiles], rgx, opt, True)
         case ArgsWrapper.OUT_PAIR_LIST | ArgsWrapper.OUT_FILE_LIST:
             if not opt.no_plain_text:
                 # destGen: list[NewFile]
@@ -229,7 +249,7 @@ def getFileNames(opt: ArgsWrapper):
             else:
                 # destGen: list[NamePattern]
                 outFiles = expandPatterns(
-                    [(f, p) for f, p in zip(inFiles, destGen)], None, opt
+                    [(f, p) for f, p in zip(inFiles, destGen)], None, opt, False
                 )
 
     if len(inFiles) != len(outFiles):

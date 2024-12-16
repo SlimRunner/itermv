@@ -1,5 +1,6 @@
 from os.path import abspath, join, dirname, relpath
 
+
 def nonNegativeNumber(arg: str):
     value = int(arg)
     if value < 0:
@@ -39,7 +40,7 @@ def isTopLevelPath(dir: str, file: str):
 
     parent_dir = dirname(file_abs)
 
-    return relpath(parent_dir, dir_abs) == '.'
+    return relpath(parent_dir, dir_abs) == "."
 
 
 def validateFilename(name: str) -> None:

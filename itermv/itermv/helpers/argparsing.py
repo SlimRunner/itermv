@@ -54,14 +54,16 @@ def formatRgxRplTuple(input: list[str] | None):
         return None
     if len(input) != 2:
         raise NotImplementedError("Implementation does not match expected pairs")
-    
+
     rgx, rpl = input
     rpl = NamePattern(rpl)
 
     return rgx, rpl
 
 
-def formatDestList(root: str, input: list[str] | None, use_plain: bool, err_cb: Err_Callback):
+def formatDestList(
+    root: str, input: list[str] | None, use_plain: bool, err_cb: Err_Callback
+):
     if input is None:
         return None
     out_list: list[NewFile | NamePattern] = []
@@ -420,11 +422,19 @@ def getArguments(*args: str) -> ArgsWrapper:
 
     setattr(pArgs, "arg_error", parser.error)
     pArgs.rename_replace = opt_none(pArgs.rename_replace)  # -> NamePattern | None
-    pArgs.rename_each = formatRgxRplTuple(pArgs.rename_each)  # -> tuple[str, str] | None
-    pArgs.rename_list = formatDestList(src_dir.path, pArgs.rename_list, use_plain, parser.error)
-    pArgs.rename_pairs = formatSrcDestList(src_dir.path, pArgs.rename_pairs, use_plain, parser.error)
+    pArgs.rename_each = formatRgxRplTuple(
+        pArgs.rename_each
+    )  # -> tuple[str, str] | None
+    pArgs.rename_list = formatDestList(
+        src_dir.path, pArgs.rename_list, use_plain, parser.error
+    )
+    pArgs.rename_pairs = formatSrcDestList(
+        src_dir.path, pArgs.rename_pairs, use_plain, parser.error
+    )
     pArgs.regex = opt_none(pArgs.regex)  # -> str | None
-    pArgs.file_list = getInputList(src_dir.path, pArgs.file_list, parser.error)  # -> list[FileEntry] | None
+    pArgs.file_list = getInputList(
+        src_dir.path, pArgs.file_list, parser.error
+    )  # -> list[FileEntry] | None
     pArgs.sort = SortingOptions(opt_def(pArgs.sort))
     # reverse_sort # -> bool
     pArgs.source_dir = src_dir  # -> InputPath

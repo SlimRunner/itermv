@@ -137,6 +137,7 @@ def inlineReplacer(pattern: NamePattern, **options):
         matches.extend(match.groups())
         matches = [m if m is not None else "" for m in matches]
         return pattern.evalPattern(*matches, **options)
+
     return inrepl
 
 
@@ -179,15 +180,11 @@ def expandPatterns(
             destName = re.sub(regex, inlineReplacer(pattern, **nameopts), file.name)
             if not isTopLevelPath(spath, destName):
                 args.arg_error("Destination must also result in a top level path")
-            outFiles.append(
-                NewFile(os.path.join(spath, os.path.basename(destName)))
-            )
+            outFiles.append(NewFile(os.path.join(spath, os.path.basename(destName))))
             continue
 
         if rgxMatch is None:
-            outFiles.append(
-                NewFile(os.path.join(spath, file.name))
-            )
+            outFiles.append(NewFile(os.path.join(spath, file.name)))
             continue
         else:
             # get the full match and capture groups
@@ -207,72 +204,82 @@ def expandPatterns(
     return outFiles
 
 
-def getFileNames(opt: ArgsWrapper):
-    inFiles = opt.get_sources()
+def getFileNames(args: ArgsWrapper):
+    inFiles = args.get_sources()
 
-    if not opt.include_self:
+    if not args.include_self:
         inFiles = [f for f in inFiles if f.path != __file__]
 
     if inFiles is None:
-        opt.arg_error("fatal error: input file list is None")
+        args.arg_error("fatal error: input file list is None")
 
     if getRepeats(inFiles, lambda f: f.name):
-        opt.arg_error("fatal error: input files are guaranteed to be unique.")
+        args.arg_error("fatal error: input files are guaranteed to be unique.")
 
-    if not opt.is_source_ordered():
-        if opt.sort.byName():
-            inFiles = sorted(inFiles, key=lambda file: file.name, reverse=opt.reverse_sort)
-        if opt.sort.byAccessDate():
-            inFiles = sorted(inFiles, key=lambda file: file.atime, reverse=opt.reverse_sort)
-        if opt.sort.byModifyDate():
-            inFiles = sorted(inFiles, key=lambda file: file.mtime, reverse=opt.reverse_sort)
-        if opt.sort.bySize():
-            inFiles = sorted(inFiles, key=lambda file: file.size, reverse=opt.reverse_sort)
+    if not args.is_source_ordered():
+        if args.sort.byName():
+            inFiles = sorted(
+                inFiles, key=lambda file: file.name, reverse=args.reverse_sort
+            )
+        if args.sort.byAccessDate():
+            inFiles = sorted(
+                inFiles, key=lambda file: file.atime, reverse=args.reverse_sort
+            )
+        if args.sort.byModifyDate():
+            inFiles = sorted(
+                inFiles, key=lambda file: file.mtime, reverse=args.reverse_sort
+            )
+        if args.sort.bySize():
+            inFiles = sorted(
+                inFiles, key=lambda file: file.size, reverse=args.reverse_sort
+            )
 
-    destGen = opt.get_destinations()
+    destGen = args.get_destinations()
     outFiles: list[NewFile] = []
 
-    match opt.get_dest_type():
+    match args.get_dest_type():
         case ArgsWrapper.OUT_PATTERN:
             # destGen: NamePattern
             outFiles = expandPatterns(
-                [(f, destGen) for f in inFiles], opt.regex, opt, False
+                [(f, destGen) for f in inFiles], args.regex, args, False
             )
         case ArgsWrapper.OUT_REGEX_INLINE:
             # destGen: tuple(str, NamePattern)
             rgx, patt = destGen
-            outFiles = expandPatterns([(f, patt) for f in inFiles], rgx, opt, True)
+            outFiles = expandPatterns([(f, patt) for f in inFiles], rgx, args, True)
         case ArgsWrapper.OUT_PAIR_LIST | ArgsWrapper.OUT_FILE_LIST:
-            if not opt.no_plain_text:
+            if not args.no_plain_text:
                 # destGen: list[NewFile]
                 outFiles = destGen
             else:
                 # destGen: list[NamePattern]
                 outFiles = expandPatterns(
-                    [(f, p) for f, p in zip(inFiles, destGen)], None, opt, False
+                    [(f, p) for f, p in zip(inFiles, destGen)], None, args, False
                 )
 
     if len(inFiles) != len(outFiles):
-        opt.arg_error("Number of entries in source and destination must match.")
+        args.arg_error("Number of entries in source and destination must match.")
 
     oreps = getRepeats(outFiles, lambda f: f.name)
     if oreps:
-        opt.arg_error(f"Generated output files are not unique: {oreps}")
+        args.arg_error(f"Generated output files are not unique: {oreps}")
 
     intcoll = internalCollisions((f.path for f in inFiles), (f.path for f in outFiles))
     extcoll = externalCollisions(outFiles, intcoll)
 
-    if not opt.overlap and intcoll:
-        opt.arg_error(f"Try using --overlap. There are internal collisions: {intcoll}")
+    if not args.overlap and intcoll:
+        args.arg_error(f"Try using --overlap. There are internal collisions: {intcoll}")
     if extcoll:
-        opt.arg_error(f"There are collisions with files not selected: {extcoll}")
+        args.arg_error(f"There are collisions with files not selected: {extcoll}")
 
     included: list[tuple[FileEntry, NewFile]] = []
     ignored: list[tuple[FileEntry, NewFile]] = []
     for ifile, ofile in zip(inFiles, outFiles):
-        if (ifile.parent != ofile.parent):
-            opt.arg_error(f"Cannot change path of output file\n{ifile.path} {ofile.path}")
-        if (ifile.path == ofile.path):
+        if ifile.parent != ofile.parent:
+            args.arg_error(
+                f"Cannot change path of output file\n{ifile.path} {ofile.path}"
+            )
+        if ifile.path == ofile.path:
             ignored.append((ifile, ofile))
         else:
             included.append((ifile, ofile))

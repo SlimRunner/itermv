@@ -89,9 +89,9 @@ class FileEntry:
 class InputPath:
     def __init__(self, path: str) -> None:
         if not os.path.exists(path):
-            raise FileNotFoundError(f"Directory was not found: {path}")
+            raise ValueError(f"Directory was not found: {path}")
         if not os.path.isdir(path):
-            raise NotADirectoryError(f"Provided file is not a directory: {path}")
+            raise ValueError(f"Provided file is not a directory: {path}")
 
         self.__path = os.path.abspath(path)
 

@@ -1,3 +1,5 @@
+from os.path import dirname
+
 def nonNegativeNumber(arg: str):
     value = int(arg)
     if value < 0:
@@ -29,6 +31,11 @@ def identifyCycle(
             node = graph[node]
 
     return (node, prev)
+
+
+def isTopLevelPath(name: str):
+    path = dirname(name)
+    return path == '' or path == '.'
 
 
 def validateFilename(name: str) -> None:

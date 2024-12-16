@@ -60,6 +60,7 @@ Now the name replacement can be done in one of three strategies.
       - generate schedule
       - if valid, rename
 - name list
+  - `itermv -L <name1> <name2> ...`
   - no regex on the list so that it is glob-friendly
   - order of provided list is preserved
   - regex groups are not available
@@ -80,6 +81,7 @@ Task validation entails:
   - `-? -> -p <>`, `--rename-replace`
   - `-? -> -e <>`, `--rename-each`
   - `-? -> -l <>`, `--rename-list`
+  - `-? -> -f <>`, `--rename-pair`
 - filter group (mutually exclusive)
   - `-r -> -R []`, `--regex`
   - `-r -> -L []`, `--file-list`
@@ -88,16 +90,17 @@ Task validation entails:
   - `-i -> -r []`, `--reverse-sort`
 - common group (inclusive)
   - `-s -> -i []`, `--source`
+  - `-n -> -  []`, `--start-number`
+  - `-d -> -  []`, `--dry-run`
+  - `-o -> -O []`, `--overlap`
+  - `-f -> -F []`, `--include-self`
+  - `-x -> -X []`, `--exclude-dir`
+  - `-v -> -  []`, `--verbose`
   - `-t -> -  []`, `--time-stamp-type`
   - `-T -> -  []`, `--time-separator`
-  - `-n -> -  []`, `--start-number`
   - `-k -> -  []`, `--radix`
-  - `-f -> -  []`, `--include-self`
-  - `-x -> -  []`, `--exclude-dir`
-  - `-v -> -  []`, `--verbose`
+  - `-? -> -N []`, `--plain-text`
   - `-q -> -  []`, `--quiet`
-  - `-o -> -O []`, `--overlap`
-  - `-d -> -  []`, `--dry-run`
 
 `<>` means required `[]` means optional
 

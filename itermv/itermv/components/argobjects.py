@@ -7,6 +7,8 @@ from argparse import (
 )
 from typing import Any, Sequence, NoReturn
 from collections.abc import Callable
+import os
+import re
 
 
 # https://stackoverflow.com/a/29485128
@@ -110,12 +112,15 @@ class SortingOptions:
 
 
 class ArgsWrapper:
-    IN_REGEX = 0
-    IN_LIST_PLAIN = 1
-    OUT_PATTERN = 10
-    OUT_REGEX_INLINE = 11
-    OUT_LIST_PLAIN = 12
-    OUT_LIST_PATTERN = 13
+    IN_ALL = 0
+    IN_FILE_LIST = 1
+    IN_REGEX = 2
+    IN_PAIR_LIST = 3
+    OUT_MISSING = 10
+    OUT_PATTERN = 11
+    OUT_REGEX_INLINE = 12
+    OUT_PAIR_LIST = 13
+    OUT_FILE_LIST = 14
 
     def __init__(self, args) -> None:
         self.__arg_error = args.arg_error
@@ -141,21 +146,38 @@ class ArgsWrapper:
         self.__no_plain_text = args.no_plain_text
         self.__quiet = args.quiet
 
+    def is_source_ordered(self):
+        return self.rename_pairs is not None or self.file_list is not None
+
     def get_source_type(self):
-        if self.regex is not None:
+        if self.rename_pairs is not None:
+            return ArgsWrapper.IN_PAIR_LIST
+        elif self.regex is not None:
             return ArgsWrapper.IN_REGEX
         elif self.file_list is not None:
-            return ArgsWrapper.IN_LIST_PLAIN
+            return ArgsWrapper.IN_FILE_LIST
         else:
-            self.arg_error("Failure in replacement exclusive group")
+            return ArgsWrapper.IN_ALL
 
     def get_sources(self):
-        if self.regex is not None:
-            return self.regex
-        elif self.file_list is not None:
-            return self.file_list
-        else:
-            self.arg_error("Failure in replacement exclusive group")
+        includeDir = lambda f: not (self.exclude_dir and os.path.isdir(f))
+        spath = self.source_dir
+
+        match self.get_source_type():
+            case ArgsWrapper.IN_REGEX:
+                return [
+                    FileEntry(f, spath)
+                    for f in os.listdir(spath)
+                    if includeDir(f) and re.search(self.regex, f)
+                ]
+            case ArgsWrapper.IN_FILE_LIST:
+                return self.file_list
+            case ArgsWrapper.IN_PAIR_LIST:
+                return [s for s, _ in self.rename_pairs]
+            case ArgsWrapper.IN_ALL:
+                return [FileEntry(f, spath) for f in os.listdir(spath) if includeDir(f)]
+            case _:
+                return None
 
     def get_dest_type(self):
         if self.rename_replace is not None:
@@ -164,23 +186,26 @@ class ArgsWrapper:
             return ArgsWrapper.OUT_REGEX_INLINE
         elif self.rename_list is not None or self.rename_pairs is not None:
             if self.no_plain_text:
-                return ArgsWrapper.OUT_LIST_PATTERN
+                return ArgsWrapper.OUT_FILE_LIST
             else:
-                return ArgsWrapper.OUT_LIST_PLAIN
+                return ArgsWrapper.OUT_PAIR_LIST
         else:
-            self.arg
+            return ArgsWrapper.OUT_MISSING
 
     def get_destinations(self):
-        if self.rename_replace is not None:
-            return self.rename_replace
-        elif self.rename_each is not None:
-            return self.rename_each
-        elif self.rename_list is not None:
-            return self.rename_list
-        elif self.rename_pairs is not None:
-            return [d for _, d in self.rename_pairs]
-        else:
-            self.arg_error("Failure in replacement exclusive group")
+        match self.get_dest_type():
+            case ArgsWrapper.OUT_PATTERN:
+                return self.rename_replace
+            case ArgsWrapper.OUT_REGEX_INLINE:
+                return self.rename_each
+            case ArgsWrapper.OUT_FILE_LIST:
+                return self.rename_list
+            case ArgsWrapper.OUT_PAIR_LIST:
+                return [d for _, d in self.rename_pairs]
+            case ArgsWrapper.OUT_MISSING:
+                self.arg_error("Destination names cannot be ommited.")
+            case _:
+                self.arg_error("Failure in replacement exclusive group")
 
     @property
     def arg_error(self) -> Callable[[str], NoReturn]:
@@ -191,7 +216,7 @@ class ArgsWrapper:
         return self.__rename_replace
 
     @property
-    def rename_each(self) -> tuple[str | NamePattern] | None:
+    def rename_each(self) -> tuple[str, NamePattern] | None:
         return self.__rename_each
 
     @property

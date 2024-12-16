@@ -183,10 +183,10 @@ def expandPatterns(
             outFiles.append(NewFile(os.path.join(spath, os.path.basename(destName))))
             continue
 
-        if rgxMatch is None:
+        if rgxMatch is None and regex is not None:
             outFiles.append(NewFile(os.path.join(spath, file.name)))
             continue
-        else:
+        elif rgxMatch is not None:
             # get the full match and capture groups
             matches = [rgxMatch.group(0)]
             matches.extend(rgxMatch.groups())

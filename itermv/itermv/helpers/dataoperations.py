@@ -250,6 +250,8 @@ def getFileNames(opt: ArgsWrapper):
     included: list[tuple[FileEntry, NewFile]] = []
     ignored: list[tuple[FileEntry, NewFile]] = []
     for ifile, ofile in zip(inFiles, outFiles):
+        if (ifile.parent != ofile.parent):
+            opt.arg_error(f"Cannot change path of output file\n{ifile.path} {ofile.path}")
         if (ifile.path == ofile.path):
             ignored.append((ifile, ofile))
         else:

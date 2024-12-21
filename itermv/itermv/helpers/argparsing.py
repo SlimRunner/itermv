@@ -169,9 +169,9 @@ def getArguments(*args: str) -> ArgsWrapper:
             Provides a few methods to rename files. They are mutually exclusive and choosing
             one of these options is required.
             
-            The following options apply to either PATTERN or DEST unless the --plain-text
-            flag is specified. Each option describes where its capture groups come from,
-            and they all follow the Python string interpolation format
+            The following options apply to PATTERN and also to DEST when --no-plain-text
+            flag is present. Each option describes where its capture groups come from, and
+            they all follow the Python string interpolation format
 
                 - {n} or {N} a sequential number in the order specified (uppercase applies
                   when radix is greater than 10).

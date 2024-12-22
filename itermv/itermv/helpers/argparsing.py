@@ -13,6 +13,8 @@ from itermv.utils import nonNegativeNumber, positiveRadix, isTopLevelPath
 from itermv.version import __version__
 
 import os
+import sys
+from shlex import split as shsplit
 import textwrap
 from argparse import ArgumentParser
 
@@ -26,6 +28,8 @@ Err_Callback: TypeAlias = Callable[[str], NoReturn]
 def getInputList(path: str, flist: list[str] | None, err_cb: Err_Callback):
     if flist is None:
         return None
+    if len(flist) == 1 and flist[0] == "-":
+        flist = shsplit(sys.stdin.read())
     name_list: list[FileEntry] = []
     name_set = set()
 
@@ -66,6 +70,8 @@ def formatDestList(
 ):
     if input is None:
         return None
+    if use_plain and len(input) == 1 and input[0] == "-":
+        input = shsplit(sys.stdin.read())
     out_list: list[NewFile | NamePattern] = []
 
     if use_plain:
@@ -87,6 +93,20 @@ def formatDestList(
     return out_list
 
 
+def parify(lst: list, err_cb: Err_Callback):
+    if len(lst) % 2 != 0:
+        err_cb(f"For --rename-pairs arguments must come in pairs.")
+    out_list: list[tuple[str, str]] = []
+    partial_item = None
+    for i, val in enumerate(lst):
+        if partial_item is None:
+            partial_item = val
+        else:
+            out_list.append((partial_item, val))
+            partial_item = None
+    return out_list
+
+
 def formatSrcDestList(
     root: str,
     input: list[tuple[str, str]] | None,
@@ -95,6 +115,10 @@ def formatSrcDestList(
 ):
     if input is None:
         return None
+    if len(input) == 1 and input[0] == ("-", None):
+        if not use_plain:
+            err_cb(f"For --rename-pairs arguments must come in pairs.")
+        input = parify(shsplit(sys.stdin.read()), err_cb)
     out_list: list[tuple[FileEntry, NewFile | NamePattern]] = []
     if use_plain:
         src_set = set()
@@ -293,7 +317,9 @@ def getArguments(*args: str) -> ArgsWrapper:
         help=textwrap.dedent(
             """\
             Must have an even number of entries and define a pair of old to new name. Useful
-            for column formatted rename lists or when piping from other commands.
+            for column formatted rename lists or when piping from other commands. You may
+            simply add a - if you are using --use-stdin the program will validate parity of
+            stdin instead.
             """
         ),
         action=PairifyAction,

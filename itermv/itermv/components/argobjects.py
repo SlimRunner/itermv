@@ -25,19 +25,22 @@ class PairifyAction(ArgAction):
         values: str | Sequence[Any] | None,
         option_string: str | None = None,
     ) -> None:
-        if len(values) % 2 != 0:
-            parser.error(f"For {option_string} arguments must come in pairs.")
-
-        out_list: list[tuple[str, str]] = []
-        partial_item = None
-        for i, val in enumerate(values):
-            if partial_item is None:
-                partial_item = val
-            else:
-                out_list.append((partial_item, val))
+        match (len(values), values):
+            case (1, ["-"]):
+                setattr(namespace, self.dest, [("-", None)])
+            case (l, list()) if l % 2 == 0:
+                out_list: list[tuple[str, str]] = []
                 partial_item = None
+                for i, val in enumerate(values):
+                    if partial_item is None:
+                        partial_item = val
+                    else:
+                        out_list.append((partial_item, val))
+                        partial_item = None
 
-        setattr(namespace, self.dest, out_list)
+                setattr(namespace, self.dest, out_list)
+            case _:
+                parser.error(f"For {option_string} arguments must come in pairs.")
 
 
 class TimeStampType:

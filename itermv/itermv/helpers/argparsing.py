@@ -108,7 +108,6 @@ def formatSrcDestList(
             src = os.path.basename(src)
             dest = os.path.basename(dest)
 
-            print(src, src_set)
             if src in src_set:
                 err_cb(f"{src} is a duplicate source name")
             if dest in dest_set:

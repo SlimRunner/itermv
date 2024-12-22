@@ -224,6 +224,18 @@ def getArguments(*args: str) -> ArgsWrapper:
         ),
     )
 
+    verb_group = parser.add_argument_group(
+        "verbose options",
+        textwrap.dedent(
+            """\
+            These options print an itemized report of changes in the order they will happen.
+            Different flags provide different verbose formats. None of them prevent the
+            program from making changes. If you wish to redirect the output without making
+            changes, combine them with --dry-run.
+            """
+        ),
+    )
+
     comm_group = parser.add_argument_group(
         "other options",
         textwrap.dedent(
@@ -232,6 +244,8 @@ def getArguments(*args: str) -> ArgsWrapper:
             """
         ),
     )
+
+    comm_exc_plain = comm_group.add_mutually_exclusive_group(required=False)
 
     # DEFINE FLAGS ============================================================
 
@@ -321,6 +335,34 @@ def getArguments(*args: str) -> ArgsWrapper:
         help="If present sorting is reversed.",
     )
 
+    verb_group.add_argument(
+        "-v",
+        "--verbose",
+        action="store_true",
+        help="Lists all names to be changed and their common folder.",
+    )
+    verb_group.add_argument(
+        "--verbose-summary",
+        action="store_true",
+        help=textwrap.dedent(
+            """\
+            Lists at most 10 items to be changed and their common folder. If the changes
+            exceed 10 then the first and last 5 are shown.
+            """
+        ),
+    )
+    verb_group.add_argument(
+        "--verbose-export",
+        action="store_true",
+        help=textwrap.dedent(
+            """\
+            Prints minimal information that is compatible with --rename-pairs. Useful to
+            chain multiple commands that cannot be made in a single run. It will skip all
+            prompts just like --quiet.
+            """
+        ),
+    )
+
     comm_group.add_argument(
         "-i",
         "--source-dir",
@@ -364,12 +406,6 @@ def getArguments(*args: str) -> ArgsWrapper:
         help="If present regex selection ignores directories.",
     )
     comm_group.add_argument(
-        "-v",
-        "--verbose",
-        action="store_true",
-        help="Lists all names to be changed.",
-    )
-    comm_group.add_argument(
         "-t",
         "--time-stamp-type",
         nargs=1,
@@ -394,11 +430,16 @@ def getArguments(*args: str) -> ArgsWrapper:
         help="Specifies the radix of the counting (10 is default).",
         type="positive radix",
     )
-    comm_group.add_argument(
+    comm_exc_plain.add_argument(
         "-N",
         "--no-plain-text",
         action="store_true",
         help="Enables pattern replacement in DEST arguments.",
+    )
+    comm_exc_plain.add_argument(
+        "--use-stdin",
+        action="store_true",
+        help="Enables - to be interpreted as stdin in plain text fields.",
     )
     comm_group.add_argument(
         "-q",
@@ -436,18 +477,21 @@ def getArguments(*args: str) -> ArgsWrapper:
         src_dir.path, pArgs.file_list, parser.error
     )  # -> list[FileEntry] | None
     pArgs.sort = SortingOptions(opt_def(pArgs.sort))
-    # reverse_sort # -> bool
+    # reverse_sort    # -> bool
+    # verbose         # -> bool
+    # verbose_summary # -> bool
+    # verbose_export  # -> bool
     pArgs.source_dir = src_dir  # -> InputPath
     pArgs.start_number = opt_def(pArgs.start_number)  # -> int >= 0
     # dry_run      # -> bool
     # overlap      # -> bool
     # include_self # -> bool
     # exclude_dir  # -> bool
-    # verbose      # -> bool
     pArgs.time_stamp_type = TimeStampType(opt_def(pArgs.time_stamp_type))
     pArgs.time_separator = opt_def(pArgs.time_separator)  # -> str
     pArgs.radix = opt_def(pArgs.radix)  # -> int > 0
     # no_plain_text # -> bool
+    # use_stdin     # -> bool
     # quiet         # -> bool
 
     return ArgsWrapper(pArgs)

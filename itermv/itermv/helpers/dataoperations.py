@@ -16,65 +16,84 @@ from typing import Any
 from collections.abc import Callable
 
 
-def askUser(args: ArgsWrapper):
+def askUser(msg: str, args: ArgsWrapper):
     print()
-    if args.quiet:
+    if args.verbose_export or args.quiet:
         return True
     if args.dry_run:
         print("Prompt skipped by dry-run...")
         return True
-    MSG = "Do you want to proceed? [Y]es/[N]o: "
-    userInput = input(MSG)
+    userInput = input(msg)
     while len(userInput) != 1 or userInput not in "YyNn":
-        userInput = input(MSG)
+        userInput = input(msg)
     return len(userInput) > 0 and userInput in "Yy"
 
 
-def printNameMapping(
-    schedule: list[tuple[FileEntry, NewFile]],
-    ignored: list[tuple[FileEntry, NewFile]],
+def printIntro(args: ArgsWrapper):
+    if args.verbose_export or args.quiet:
+        return
+    if args.dry_run:
+        print("-- Dry Run START")
+
+
+def printSchedule(
+    schedule: list[tuple[str, str]],
+    ignored: list[tuple[str, str]],
     args: ArgsWrapper,
 ):
+    schedule = [(os.path.basename(a), os.path.basename(b)) for a, b in schedule]
+    ignored = [(os.path.basename(a), os.path.basename(b)) for a, b in ignored]
+    if args.verbose or args.verbose_summary:
+        rowLimit = 10 if args.verbose_summary else 0
+        print(f"Common directory is: {args.source_dir.path}\n")
+        if ignored:
+            print("These files will be ignored:")
+            print("\n".join(f"    {r}" for r in getRows(ignored, rowLimit)))
+        print("Renaming schedule:")
+        print("\n".join(f"    {r}" for r in getRows(schedule, rowLimit)))
+    elif args.verbose_export:
+        print("\n".join(f"{a} {b}" for a, b in schedule))
+    else:
+        msg = f"{len(schedule)} files will be changed"
+        if ignored:
+            msg += f" and {len(ignored)} files will be ignored."
+        print(msg)
+
+
+def getRows(items: list[tuple[str, str]], rowLimit=0):
+    lines = []
+    colSize = [0, 0]
+    for a, b in items:
+        colSize[0] = max(colSize[0], len(a))
+        colSize[1] = max(colSize[1], len(b))
+    for a, b in items:
+        lines.append(f"{a:{colSize[0]}} -> {b:{colSize[1]}}")
+
+    if rowLimit > 0 and rowLimit < len(lines) // 2:
+        lines = lines[:rowLimit] + lines[-rowLimit:]
+
+    return lines
+
+
+def printOutro(
+    schedule: list[tuple[str, str]],
+    ignored: list[tuple[str, str]],
+    args: ArgsWrapper,
+    success: bool,
+):
+    if args.verbose_export:
+        return
+    match (success, len(schedule), len(ignored)):
+        case (False, sel, 0) if sel > 0:
+            print("Operation failed. Partial changes may remain.")
+        case (False, 0, exc) if exc > 0:
+            print("All selected files were ignored.")
+        case (False, 0, 0):
+            print("No files were selected.")
+        case (True, _, _):
+            pass
     if args.dry_run:
-        print("-- DRY RUN")
-    if args.verbose:
-        print(f"The common directory is: {args.source_dir.path}\n")
-
-        colSize = [0, 0]
-        for o, n in schedule + ignored:
-            colSize[0] = max(colSize[0], len(o.name))
-            colSize[1] = max(colSize[1], len(n.name))
-
-        if len(schedule):
-            print("The following files will be changed:")
-        for o, n in schedule:
-            print(f"    {o.name:{colSize[0]}} -> {n.name:{colSize[1]}}")
-
-        if len(ignored):
-            print("The following files will be ignored:")
-        for o, n in ignored:
-            print(f"    {o.name:{colSize[0]}} -> {n.name:{colSize[1]}}")
-
-    elif not args.quiet:
-        print(f"{len(schedule)} files will be changed")
-        print(f"{len(ignored)} files will be ignored")
-
-
-def printChangesMade(schedule: list[tuple[str, str]], args: ArgsWrapper):
-    schedule = [(os.path.basename(o), os.path.basename(n)) for o, n in schedule]
-    if args.verbose:
-        print("Changes performed:")
-        colSize = [0, 0]
-        for o, n in schedule:
-            colSize[0] = max(colSize[0], len(o))
-            colSize[1] = max(colSize[1], len(n))
-        for o, n in schedule:
-            print(f"    {o:{colSize[0]}} -> {n:{colSize[1]}}")
-    elif not args.quiet:
-        print(f"{len(schedule)} name changes performed")
-
-    if args.dry_run:
-        print("DRY RUN --")
+        print("Dry Run END --")
 
 
 def getTimeFormats(file: FileEntry, ttype: TimeStampType, separator: str):

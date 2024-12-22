@@ -2,6 +2,7 @@ from itermv.components import RadixCounter, FileEntry, NewFile
 from itermv.utils import identifyCycle
 
 import os
+from sys import stderr
 from random import randint
 
 
@@ -28,13 +29,27 @@ def genTempName(path: str) -> str:
     raise FileExistsError("Could not find an available name.")
 
 
-def renameFiles(
-    filePairs: list[tuple[FileEntry, NewFile]], dryRun=False
-) -> list[tuple[str, str]]:
-    if len(filePairs) == 0:
+def createValidTasklist(tasklist: list[tuple[FileEntry, NewFile]]):
+    schedule: list[tuple[str, str]] = [
+        (old.path, new.path) for old, new in tasklist if old.path != new.path
+    ]
+    sourceSet = {f for f, _ in schedule}
+    targetSet = {f for _, f in schedule}
+    diffset = sourceSet.intersection(targetSet)
+    if len(diffset) != 0:
+        errmsg = "Internal collision detected without the --overlap flag."
+        errmsg += "Conflicting names are: "
+        errmsg += str(diffset)
+        raise FileExistsError(errmsg)
+
+    return schedule
+
+
+def createValidSchedule(tasklist: list[tuple[FileEntry, NewFile]]):
+    if len(tasklist) == 0:
         return
 
-    commonPath = filePairs[0][0].parent
+    commonPath = tasklist[0][0].parent
 
     # map of renames: new -> old
     graph: dict[str, str] = {}
@@ -45,11 +60,11 @@ def renameFiles(
     # that the resulting graph has no branching.
 
     # build graph
-    for oldn, newn in filePairs:
-        if newn.path in graph:
-            # branching detected
+    for fsrc, ftrg in tasklist:
+        # detect branching
+        if ftrg.path in graph:
             raise ValueError("Pattern provided does not yield unique names.")
-        graph[newn.path] = oldn.path
+        graph[ftrg.path] = fsrc.path
 
     cycles: list[str] = []
     sequences: list[str] = []
@@ -73,7 +88,6 @@ def renameFiles(
 
     sequences = list(seqdict.keys())
 
-    # schedule of pairs: (old, new)
     schedule: list[tuple[str, str]] = []
     tempName: str | None = None
 
@@ -99,25 +113,25 @@ def renameFiles(
         _, tail = schedule[-1]
         schedule[-1] = (tempName, tail)
 
-    if not dryRun:
-        for old, new in schedule:
-            os.rename(old, new)
-
     return schedule
 
 
-def renameDisjointFiles(
-    filePairs: list[tuple[FileEntry, NewFile]], dryRun=False
-) -> list[tuple[str, str]]:
-    schedule: list[tuple[str, str]] = [
-        (old.path, new.path) for old, new in filePairs if old.path != new.path
-    ]
-    oldNames = {old for old, _ in schedule}
+def renameBySchedule(schedule: list[tuple[str, str]]):
+    tasklog: list[tuple[str, str]] = []
+    try:
+        for source, target in schedule:
+            os.rename(source, target)
+            tasklog.append((source, target))
+    except:
+        (False, tasklog)
+    return (True, tasklog)
 
-    for old, new in schedule:
-        if new in oldNames:
-            raise FileExistsError("There cannot be overlap between old and new names.")
-        if not dryRun:
-            os.rename(old, new)
 
-    return schedule
+def undoSchedule(schedule: list[tuple[str, str]]):
+    try:
+        for source, target in reversed(schedule):
+            # source and target are reversed on purpose
+            os.rename(target, source)
+    except Exception as ex:
+        print("Fatal error: undo failed.", file=stderr)
+        raise ex

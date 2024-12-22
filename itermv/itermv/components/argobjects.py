@@ -133,17 +133,20 @@ class ArgsWrapper:
 
         self.__sort = args.sort
         self.__reverse_sort = args.reverse_sort
+        self.__verbose = args.verbose
+        self.__verbose_summary = args.verbose_summary
+        self.__verbose_export = args.verbose_export
         self.__source_dir = args.source_dir
         self.__start_number = args.start_number
         self.__dry_run = args.dry_run
         self.__overlap = args.overlap
         self.__include_self = args.include_self
         self.__exclude_dir = args.exclude_dir
-        self.__verbose = args.verbose
         self.__time_stamp_type = args.time_stamp_type
         self.__time_separator = args.time_separator
         self.__radix = args.radix
         self.__no_plain_text = args.no_plain_text
+        self.__use_stdin = args.use_stdin
         self.__quiet = args.quiet
 
     def is_source_ordered(self):
@@ -247,6 +250,18 @@ class ArgsWrapper:
         return self.__reverse_sort
 
     @property
+    def verbose(self) -> bool:
+        return self.__verbose
+
+    @property
+    def verbose_summary(self) -> bool:
+        return self.__verbose_summary
+
+    @property
+    def verbose_export(self) -> bool:
+        return self.__verbose_export
+
+    @property
     def source_dir(self) -> InputPath:
         return self.__source_dir
 
@@ -271,10 +286,6 @@ class ArgsWrapper:
         return self.__exclude_dir
 
     @property
-    def verbose(self) -> bool:
-        return self.__verbose
-
-    @property
     def time_stamp_type(self) -> TimeStampType:
         return self.__time_stamp_type
 
@@ -289,6 +300,10 @@ class ArgsWrapper:
     @property
     def no_plain_text(self) -> bool:
         return self.__no_plain_text
+
+    @property
+    def use_stdin(self) -> bool:
+        return self.__use_stdin
 
     @property
     def quiet(self) -> bool:
